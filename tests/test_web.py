@@ -42,10 +42,11 @@ def multipart(fields: dict, files: dict) -> tuple[bytes, str]:
     return out.getvalue(), f"multipart/form-data; boundary={b}"
 
 
-def call(app, method="GET", path="/", body=b"", ctype=""):
+def call(app, method="GET", path="/", body=b"", ctype="", extra=None):
     env = {"REQUEST_METHOD": method, "PATH_INFO": path, "wsgi.input": io.BytesIO(body),
            "CONTENT_LENGTH": str(len(body)), "CONTENT_TYPE": ctype}
-    setup_testing_defaults(env)
+    setup_testing_defaults(env)  # HTTP_HOST / SERVER_NAME = 127.0.0.1
+    env.update(extra or {})
     got = {}
 
     def start(status, headers):
@@ -58,6 +59,63 @@ def call(app, method="GET", path="/", body=b"", ctype=""):
 @pytest.fixture
 def app(tmp_path):
     return make_app(tmp_path / "receipts", tmp_path / "keys", FIX)
+
+
+@pytest.fixture
+def app_api(tmp_path):
+    """A server started with --allow-api: the page may spend Meta API credits."""
+    return make_app(tmp_path / "receipts", tmp_path / "keys", FIX, allow_api=True)
+
+
+def test_negative_content_length_is_400_and_body_is_not_read(app):
+    stream = io.BytesIO(b"x" * 64)
+    status, _, _ = call(app, "POST", "/checkin", b"", "multipart/form-data; boundary=x",
+                        extra={"wsgi.input": stream, "CONTENT_LENGTH": "-1"})
+    assert status == "400 Bad Request"
+    assert stream.tell() == 0  # nothing was read past the cap
+
+
+@pytest.mark.parametrize("host", ["evil.example", "evil.example:8765", "10.0.0.5:8765", "127.0.0.1.evil.example"])
+def test_foreign_host_header_is_403_dns_rebinding(app, tmp_path, host):
+    assert call(app, "GET", "/", extra={"HTTP_HOST": host})[0] == "403 Forbidden"
+    body, ctype = multipart({"mode": "fixture", "fixture": "accept"}, {})
+    assert call(app, "POST", "/checkin", body, ctype, extra={"HTTP_HOST": host})[0] == "403 Forbidden"
+    assert not list((tmp_path / "receipts").glob("*.json"))
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "127.0.0.1:8765", "localhost:8765", "[::1]:8765"])
+def test_loopback_hosts_are_served(app, host):
+    assert call(app, "GET", "/", extra={"HTTP_HOST": host})[0] == "200 OK"
+
+
+@pytest.mark.parametrize("hdr", [{"HTTP_ORIGIN": "http://evil.example"}, {"HTTP_ORIGIN": "http://127.0.0.1.evil.example:8765"},
+                                 {"HTTP_REFERER": "http://evil.example/attack.html"}, {"HTTP_ORIGIN": "null"}])
+def test_cross_site_post_is_403_csrf(app, tmp_path, hdr):
+    body, ctype = multipart({"mode": "fixture", "fixture": "accept"}, {})
+    status, _, page = call(app, "POST", "/checkin", body, ctype, extra=hdr)
+    assert status == "403 Forbidden", page
+    assert not list((tmp_path / "receipts").glob("*.json"))
+
+
+@pytest.mark.parametrize("hdr", [{"HTTP_ORIGIN": "http://127.0.0.1"}, {"HTTP_ORIGIN": "http://127.0.0.1:8765"},
+                                 {"HTTP_REFERER": "http://localhost:8765/"}, {}])
+def test_same_origin_or_headerless_post_is_served(app, hdr):
+    body, ctype = multipart({"mode": "fixture", "fixture": "accept"}, {})
+    assert call(app, "POST", "/checkin", body, ctype, extra=hdr)[0] == "200 OK"
+
+
+@pytest.mark.parametrize("fields", [{"mode": "api"}, {"mode": "auto"}, {"mode": "fixture", "fixture": "accept", "explain": "api"}])
+def test_paid_modes_need_explicit_opt_in(app, tmp_path, fields):
+    body, ctype = multipart(fields, {})
+    status, _, page = call(app, "POST", "/checkin", body, ctype)
+    assert status == "403 Forbidden" and b"--allow-api" in page
+    assert not list((tmp_path / "receipts").glob("*.json"))
+
+
+def test_allow_api_lets_the_page_use_paid_modes(app_api):
+    body, ctype = multipart({"mode": "fixture", "fixture": "count_mismatch", "explain": "api"}, {})
+    status, _, page = call(app_api, "POST", "/checkin", body, ctype)
+    assert status == "200 OK" and b"NO_MODEL" in page  # no key in tests: explanation NO_MODEL, HOLD stands
 
 
 def test_get_form(app):
@@ -88,9 +146,9 @@ def test_post_fixture_accept(app, tmp_path):
     assert s == "200 OK" and h["Content-Type"].startswith("application/json") and served == rp.read_bytes()
 
 
-def test_post_fixture_hold_shows_reasons_and_explanation_status(app):
+def test_post_fixture_hold_shows_reasons_and_explanation_status(app_api):
     body, ctype = multipart({"mode": "fixture", "fixture": "count_mismatch", "explain": "api", "lang": "en"}, {})
-    status, _, page = call(app, "POST", "/checkin", body, ctype)
+    status, _, page = call(app_api, "POST", "/checkin", body, ctype)
     page = page.decode()
     assert status == "200 OK" and 'class="v HOLD"' in page
     assert "COUNT_MISMATCH doc=12 vision=11 voice=12" in page
@@ -119,7 +177,7 @@ def test_api_mode_through_web_uses_the_same_pipeline(tmp_path):
     def h(req):  # every API call fails: HOLD with ERROR witnesses, never an ACCEPT
         return httpx.Response(503, text="FIXTURE unavailable")
 
-    app = make_app(tmp_path / "receipts", tmp_path / "keys", FIX,
+    app = make_app(tmp_path / "receipts", tmp_path / "keys", FIX, allow_api=True,
                    client_factory=lambda **kw: MetaClient(api_key="FIXTURE-key", transport=httpx.MockTransport(h), **kw))
     a = FIX / "accept"
     files = {"load": ("l.png", (a / "load.FIXTURE.png").read_bytes(), "image/png"),
@@ -135,9 +193,9 @@ def test_api_mode_through_web_uses_the_same_pipeline(tmp_path):
         ["web checkin"] * 3
 
 
-def test_api_mode_without_files_is_400(app):
+def test_api_mode_without_files_is_400(app_api):
     body, ctype = multipart({"mode": "api"}, {})
-    status, _, page = call(app, "POST", "/checkin", body, ctype)
+    status, _, page = call(app_api, "POST", "/checkin", body, ctype)
     assert status == "400 Bad Request" and b"--load is required" in page
 
 
@@ -182,7 +240,7 @@ def test_html_escapes_model_text(tmp_path):
         return httpx.Response(200, json={"status": "completed", "output": [{"type": "message", "content": [
             {"type": "output_text", "text": "FIXTURE <script>alert(1)</script>"}]}]})
 
-    app = make_app(tmp_path / "r", tmp_path / "k", FIX,
+    app = make_app(tmp_path / "r", tmp_path / "k", FIX, allow_api=True,
                    client_factory=lambda **kw: MetaClient(api_key="FIXTURE-key", transport=httpx.MockTransport(h), **kw))
     body, ctype = multipart({"mode": "fixture", "fixture": "count_mismatch", "explain": "api"}, {})
     page = call(app, "POST", "/checkin", body, ctype)[2].decode()
