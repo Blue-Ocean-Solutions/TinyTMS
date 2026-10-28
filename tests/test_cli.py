@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tinytms.receipt import verify_receipt
+from tinytms.receipt import find_machine_paths, verify_receipt
 
 REPO = Path(__file__).resolve().parent.parent
 FIX = REPO / "fixtures"
@@ -108,3 +108,4 @@ def test_local_mode_without_cached_model_holds(tmp_path):
     _, r = only_receipt(tmp_path)
     assert r["verdict"]["reasons"] == ["NO_MODEL:vision", "NO_MODEL:doc", "NO_MODEL:voice"]
     assert "not in local cache" in r["witnesses"]["vision"]["detail"]
+    assert find_machine_paths(r) == []  # the receipt describes the run, never this machine

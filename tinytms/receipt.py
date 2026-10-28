@@ -21,6 +21,25 @@ RECEIPT_VERSION = "tinytms-receipt/1"
 PRIVATE_KEY_FILE = "ed25519.key"
 PUBLIC_KEY_FILE = "ed25519.pub"
 
+# A receipt describes a run, never the machine it ran on: no user home, temp or volume paths.
+MACHINE_PATH_PREFIXES = ("/Users/", "/private/", "/home/", "/Volumes/")
+
+
+def find_machine_paths(obj: Any) -> list[str]:
+    """Every string anywhere in obj (keys included) that carries a machine path prefix."""
+    found: list[str] = []
+    if isinstance(obj, str):
+        if any(p in obj for p in MACHINE_PATH_PREFIXES):
+            found.append(obj)
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            found += find_machine_paths(k)
+            found += find_machine_paths(v)
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            found += find_machine_paths(v)
+    return found
+
 
 def canonical_json(obj: Any) -> bytes:
     return json.dumps(
@@ -55,6 +74,10 @@ def sign_receipt(body: dict[str, Any], sk: SigningKey) -> dict[str, Any]:
     """Return body + version/tinytms/public_key + signature (hex)."""
     if "signature" in body:
         raise ValueError("body already has a signature")
+    leaked = find_machine_paths(body)
+    if leaked:
+        shown = ", ".join(repr(s[:80]) for s in leaked[:3])
+        raise ValueError(f"receipt body carries machine paths ({len(leaked)}): {shown}")
     unsigned = dict(body)
     unsigned.setdefault("version", RECEIPT_VERSION)
     unsigned.setdefault("tinytms", __version__)

@@ -62,16 +62,24 @@ the verdict is already fixed and does not change.
 ## Numbers policy
 
 No performance figure (latency, throughput, accuracy) appears here unless it links to a file in `receipts/`
-produced by a command that is written down, with its date. **Today there are none**: no real model has
-been run through tinyTMS yet. `tests/test_readme_numbers.py` fails CI if this README quotes a time,
-frame rate, percentage or token rate on a line without a `receipts/` link.
+produced by a command that is written down, with its date. `tests/test_readme_numbers.py` fails CI if this
+README quotes a time, frame rate, percentage or token rate on a line without a `receipts/` link.
+
+First receipt (2026-10-28, Apple M5 Max, 128 GB unified memory, `mlx_vlm` 0.7.10), `receipts/local-vlm-20261028T152737Z.json`: Muse Glimmer 30B 4-bit loads in 1.2 s from a warm cache and generates at 30 tok/s on `evals/public/boxes-pallet.jpg` (1,242 prompt tokens, 128 generated, peak 20.7 GB), command `python scripts/measure_local_vlm.py --image evals/public/boxes-pallet.jpg`.
+The model's sentence is in the receipt; it describes the door and the boxes and invents nothing.
+One run on one image is a measurement, not a benchmark.
+
+Receipts in this repo are signed by the measuring seat's key, public half
+`50be0cedb34ab0b93023708d5059408480839afad77d8ef7889ef3b5f53fbb9c`; pass it as `trusted_public_key` to pin origin.
+A receipt describes the run, never the machine: `sign_receipt` refuses any body carrying a user, temp or volume path,
+and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or `tests/data/`.
 
 ## What is NOT here (yet)
 
-- No real model output. The Meta API request bodies and model ids are assumptions until checked with a
-  live key; `fixtures/` are hand-written and labelled FIXTURE in file name and content.
+- No Meta API output yet. The API request bodies and model ids in `tinytms/meta_api.py` are assumptions until
+  checked with a live key; `fixtures/` are hand-written and labelled FIXTURE in file name and content.
 - No local speech-to-text: in `--mode local` the voice witness is `NO_MODEL`, so local check-ins HOLD.
-- The house `mlx_vlm` does not load Muse Glimmer today; local mode needs an interpreter whose `mlx_vlm` does.
+- Muse Glimmer needs `mlx_vlm` >= 0.7.10 (model type `muse_glimmer`); point `TINYTMS_LOCAL_PYTHON` at an interpreter that has it.
 - No camera capture, web page, TMS records (load / stop / document) or exception tickets yet.
 - Nothing about customs or government filings.
 

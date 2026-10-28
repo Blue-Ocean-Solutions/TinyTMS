@@ -6,11 +6,40 @@ from pathlib import Path
 
 import pytest
 
-from tinytms._local import LocalModelError, ModelNotCached, resolve_cached_model
+from tinytms._local import LocalModelError, ModelNotCached, redact_machine_paths, resolve_cached_model
 from tinytms.local_llm import LocalLLM, explain_prompt
 from tinytms.local_vlm import GLIMMER_REPO, LocalVLM, mlx_vlm_version
+from tinytms.receipt import find_machine_paths
 
 REPO = Path(__file__).resolve().parent.parent
+
+
+def test_redact_machine_paths():
+    assert redact_machine_paths("boom /Users/x/y z") == "boom <machine-path> z"
+    assert redact_machine_paths("/private/var/folders/ab/empty-hf and /home/u/.cache") == "<machine-path> and <machine-path>"
+    assert redact_machine_paths("clean text evals/public/x.jpg") == "clean text evals/public/x.jpg"
+
+
+def test_not_cached_message_names_the_variable_not_the_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("HF_HUB_CACHE", str(tmp_path / "empty-hf"))
+    monkeypatch.delenv("TINYTMS_GLIMMER_PATH", raising=False)
+    with pytest.raises(ModelNotCached) as ei:
+        resolve_cached_model(GLIMMER_REPO, "TINYTMS_GLIMMER_PATH")
+    msg = str(ei.value)
+    assert find_machine_paths(msg) == [], msg
+    assert GLIMMER_REPO in msg and "HF_HUB_CACHE" in msg and "not in local cache" in msg
+
+
+def test_override_without_config_message_has_no_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("TINYTMS_GLIMMER_PATH", str(tmp_path / "nope"))
+    with pytest.raises(ModelNotCached) as ei:
+        resolve_cached_model(GLIMMER_REPO, "TINYTMS_GLIMMER_PATH")
+    assert find_machine_paths(str(ei.value)) == [] and "TINYTMS_GLIMMER_PATH" in str(ei.value)
+
+
+def test_local_model_error_redacts_at_construction():
+    e = LocalModelError("worker exited: Traceback /Users/someone/venv/lib/x.py line 3")
+    assert find_machine_paths(str(e)) == [] and "worker exited" in str(e)
 
 
 def test_not_cached_is_explicit(tmp_path, monkeypatch):
