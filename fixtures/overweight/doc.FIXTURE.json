@@ -1,0 +1,11 @@
+{
+  "witness": "doc",
+  "provenance": "FIXTURE hand-written 2026-10-28, not a model output",
+  "note": "case overweight: synthetic data, placeholder media",
+  "pieces": 12,
+  "weight_kg": 26500.0,
+  "seal": "MX-48213",
+  "hazmat": false,
+  "shipper": "Transportes Ejemplo SA de CV (synthetic)",
+  "consignee": "Bodega Demo LLC (synthetic)"
+}
