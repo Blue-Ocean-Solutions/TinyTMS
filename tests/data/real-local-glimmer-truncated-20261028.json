@@ -1,0 +1,31 @@
+{
+ "provenance": "REAL local-mlx 2026-10-28: Muse-Glimmer-30B-4bit via mlx_vlm 0.7.10 on an Apple M5 Max, through tinytms/_mlx_worker.py; both generations were cut by max_tokens before the model reached its final answer (the text is the analysis channel: ' to=self<|message|>' + the prompt echoed + reasoning)",
+ "model": "mlx-community/Muse-Glimmer-30B-4bit",
+ "cases": [
+  {
+   "witness": "vision",
+   "image": "evals/public/boxes-pallet.jpg",
+   "max_tokens": 32,
+   "generation_tokens": 32,
+   "truncated": true,
+   "text": " to=self<|message|>How many pallets are fully or partly visible in this image? Answer with a single integer and nothing else. If you cannot tell, answer:"
+  },
+  {
+   "witness": "doc",
+   "image": "evals/doc/carta_sintetica.png",
+   "max_tokens": 256,
+   "generation_tokens": 256,
+   "truncated": true,
+   "text": " to=self<|message|>You are reading a freight document (bill of lading or Mexican Carta de Porte). Return ONLY a JSON object with exactly these keys: \"pieces\" (integer total handling units, or null), \"weight_kg\" (number, gross kg, or null), \"seal\" (string seal number, or null), \"shipper\" (string or null), \"consignee\" (string or null), \"hazmat\" (true, false, or null if not stated). Use null for anything not legible. Do not guess.\n\nWe need parse.\n\nCARTA DE PORTE No. CP-2026-0421\n\nREMITENTE: Maderas del Norte SA de CV\n\nDESTINATARIO: Almacen Rio Bravo LLC\n\nPIEZAS: 12 PALLETS\n\nPESO BRUTO: 4,800 KG\n\nSELLO: MX-48213\n\nMATERIAL PELIGROSO: NO\n\npieces: 12 PALLETS. Total handling units integer. 12.\n\nweight_kg: 4,800 KG. Is that 4,800 kg? In Spanish comma is thousand separator? 4,800 KG likely 4800 kg. Number. Should be 4800. Might be "
+  },
+  {
+   "witness": "vision",
+   "image": "evals/public/boxes-pallet.jpg",
+   "max_tokens": 256,
+   "generation_tokens": 241,
+   "truncated": false,
+   "text": "1",
+   "note": "same prompt with 256 tokens: 241 tokens of analysis, then the final channel; mlx_vlm returns only the final text when the model finishes"
+  }
+ ]
+}

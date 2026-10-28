@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from tinytms.adapters import doc_from_spark, sam_text, parse_sse, vision_from_sam, voice_from_transcript
-from tinytms.receipt import verify_receipt
+from tinytms.receipt import find_machine_paths, verify_receipt
 from tinytms.verify import Limits, judge
 
 REPO = Path(__file__).resolve().parent.parent
@@ -31,6 +31,11 @@ def load(kind):
 def test_real_files_are_labelled_and_clean(path):
     s = path.read_text(encoding="utf-8")
     d = json.loads(s)
+    if d["provenance"].startswith("REAL local-mlx"):
+        # A local-model record: raw worker outputs, no API fields, no receipt link; still labelled and clean.
+        assert d["model"] == "mlx-community/Muse-Glimmer-30B-4bit" and d["cases"]
+        assert "base64," not in s and find_machine_paths(d) == []
+        return
     assert d["provenance"] == f"REAL meta-api {d['utc']}" and d["http"] == 200
     assert d["model"] in ("sam-3.1", "muse-spark-1.3", "muse-voice-transcribe-1.0")
     assert "base64," not in s

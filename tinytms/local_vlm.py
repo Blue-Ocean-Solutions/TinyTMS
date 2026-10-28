@@ -36,6 +36,25 @@ COUNT_PROMPT = (
 )
 _SINGLE_INT = re.compile(r"\s*(\d{1,4})\s*\.?\s*")
 
+# Glimmer reasons in an analysis channel before its final answer. Measured 2026-10-28 (L1, M5 Max, mlx_vlm
+# 0.7.10): the count answer took 241 tokens of analysis before the final "1"; the document JSON needed more
+# than 512. With the budget exhausted the worker returns the analysis (" to=self<|message|>" + the prompt
+# echoed + reasoning), which must never be parsed as an answer. Budgets leave room; truncation is an ERROR.
+VISION_MAX_TOKENS = 512
+DOC_MAX_TOKENS = 2048
+ANALYSIS_MARKERS = ("<|message|>", "to=self")
+
+
+def is_incomplete(g: Generation) -> bool:
+    """True when the generation ran out of budget or still carries analysis-channel residue."""
+    head = g.text.lstrip()[:40]
+    return bool(g.truncated) or any(m in head for m in ANALYSIS_MARKERS)
+
+
+def _incomplete_detail(g: Generation, budget: int) -> str:
+    return (f"incomplete: generation stopped in the analysis channel ({g.generation_tokens} of {budget} tokens); "
+            f"raw={g.text[:160]!r}")
+
 
 def parse_single_integer(text: str) -> int | None:
     """The answer only if it IS a single integer (an optional final period allowed); prose -> None."""
@@ -43,7 +62,8 @@ def parse_single_integer(text: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-__all__ = ["LocalVLM", "LocalModelError", "mlx_vlm_version", "vision_local", "doc_local", "parse_single_integer"]
+__all__ = ["LocalVLM", "LocalModelError", "mlx_vlm_version", "vision_local", "doc_local", "parse_single_integer",
+           "is_incomplete", "VISION_MAX_TOKENS", "DOC_MAX_TOKENS"]
 
 
 def mlx_vlm_version(python: str | None = None) -> str | None:
@@ -96,9 +116,11 @@ def vision_local(vlm: LocalVLM, image: str | Path, concept: str = "pallet") -> V
     meta = dict(model=f"{GLIMMER_MODEL_ID}@local", provider=PROVIDER,
                 source_sha256=sha256_file(image), concept=concept)
     try:
-        g = vlm.describe(image, COUNT_PROMPT.format(concept=concept), max_tokens=16)
+        g = vlm.describe(image, COUNT_PROMPT.format(concept=concept), max_tokens=VISION_MAX_TOKENS)
     except LocalModelError as e:
         return VisionWitness(status="ERROR", detail=f"{type(e).__name__}: {e}", **meta)
+    if is_incomplete(g):
+        return VisionWitness(status="ERROR", detail=_incomplete_detail(g, VISION_MAX_TOKENS), **meta)
     n = parse_single_integer(g.text)
     if n is None:
         return VisionWitness(status="OK", count=None, detail=f"not a single integer: {g.text[:200]!r}", **meta)
@@ -108,9 +130,14 @@ def vision_local(vlm: LocalVLM, image: str | Path, concept: str = "pallet") -> V
 def doc_local(vlm: LocalVLM, image: str | Path) -> DocWitness:
     meta = dict(model=f"{GLIMMER_MODEL_ID}@local", provider=PROVIDER, source_sha256=sha256_file(image))
     try:
-        g = vlm.describe(image, DOC_PROMPT, max_tokens=256)
+        g = vlm.describe(image, DOC_PROMPT, max_tokens=DOC_MAX_TOKENS)
+    except LocalModelError as e:
+        return DocWitness(status="ERROR", detail=f"{type(e).__name__}: {e}", **meta)
+    if is_incomplete(g):
+        return DocWitness(status="ERROR", detail=_incomplete_detail(g, DOC_MAX_TOKENS), **meta)
+    try:
         data = parse_json_text(g.text)
-    except (LocalModelError, ValueError) as e:
+    except ValueError as e:
         return DocWitness(status="ERROR", detail=f"{type(e).__name__}: {e}", **meta)
     if not isinstance(data, dict):
         return DocWitness(status="ERROR", detail="output JSON is not an object", **meta)
