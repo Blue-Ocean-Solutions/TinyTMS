@@ -217,6 +217,9 @@ def make_app(
         return send(start, status, body)
 
     def checkin(environ: dict[str, Any], start: StartResponse) -> list[bytes]:
+        # Modern browsers label every POST with Sec-Fetch-Site: only this origin (or a direct navigation) passes.
+        if environ.get("HTTP_SEC_FETCH_SITE", "").strip().lower() in ("cross-site", "same-site"):
+            return error(start, "403 Forbidden", "cross-site request refused: the form must be posted from this server")
         # A browser POST carries Origin (or at least Referer); either must name this machine. A request
         # with neither is not a browser form and cannot be cross-site.
         for header in ("HTTP_ORIGIN", "HTTP_REFERER"):
