@@ -10,6 +10,7 @@ from tinytms.receipt import (
     PRIVATE_KEY_FILE,
     PUBLIC_KEY_FILE,
     canonical_json,
+    find_machine_paths,
     load_or_create_key,
     public_key_hex,
     sign_receipt,
@@ -68,23 +69,34 @@ def test_garbage_is_false_not_exception():
     assert not verify_receipt([])  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("prefix", ["/Users/", "/private/", "/home/", "/Volumes/"])
-def test_sign_receipt_rejects_machine_paths(prefix):
+@pytest.mark.parametrize("prefix", ["/Users/", "/private/", "/home/", "/Volumes/", "/var/folders/", "/tmp/", "/root/"])
+def test_sign_receipt_redacts_machine_paths_and_counts(prefix):
+    # A path in a free-text field must never block the receipt (that would let a document or a
+    # voice note suppress the audit trail): it is redacted, counted, and the receipt still signs.
     assert prefix in MACHINE_PATH_PREFIXES
     body = dict(BODY, command=f"python x --image {prefix}someone/photo.jpg")
-    with pytest.raises(ValueError):
-        sign_receipt(body, SigningKey.generate())
+    r = sign_receipt(body, SigningKey.generate())
+    assert find_machine_paths(r) == []
+    assert r["command"] == "python x --image <machine-path>"
+    assert r["redacted_machine_paths"] == 1
+    assert verify_receipt(r)
 
 
-def test_sign_receipt_rejects_nested_machine_paths():
-    body = dict(BODY, load={"worker": {"paths": ["ok", "/Users/someone/.cache/hf"]}})
-    with pytest.raises(ValueError):
-        sign_receipt(body, SigningKey.generate())
+def test_sign_receipt_redacts_nested_strings_and_keeps_signing():
+    body = dict(BODY, load={"worker": {"paths": ["ok", "/Users/someone/.cache/hf"]}},
+                witnesses={"doc": {"detail": "remarks mention /home/x on the paper"}})
+    r = sign_receipt(body, SigningKey.generate())
+    assert find_machine_paths(r) == []
+    assert r["redacted_machine_paths"] == 2
+    assert r["load"]["worker"]["paths"] == ["ok", "<machine-path>"]
+    assert verify_receipt(r)
 
 
-def test_sign_receipt_accepts_relative_paths():
+def test_sign_receipt_leaves_clean_bodies_untouched():
     body = dict(BODY, image={"path": "evals/public/boxes-pallet.jpg"}, note="see receipts/x.json")
-    assert verify_receipt(sign_receipt(body, SigningKey.generate()))
+    r = sign_receipt(body, SigningKey.generate())
+    assert "redacted_machine_paths" not in r and r["image"] == body["image"]
+    assert verify_receipt(r)
 
 
 def test_key_files(tmp_path, capsys):
