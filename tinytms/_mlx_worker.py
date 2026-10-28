@@ -110,12 +110,16 @@ def main() -> int:
             if not isinstance(text, str):
                 emit(event="error", stage="generate", error=f"no text in result {type(out).__name__}")
                 continue
+            gen_tokens = _attr(stats, "generation_tokens")
             emit(event="result", text=text,
                  prompt_tokens=_attr(stats, "prompt_tokens"),
-                 generation_tokens=_attr(stats, "generation_tokens"),
+                 generation_tokens=gen_tokens,
                  generation_tps=_attr(stats, "generation_tps"),
                  peak_memory_gb=_attr(stats, "peak_memory"),
-                 wall_s=round(time.perf_counter() - t1, 3))
+                 wall_s=round(time.perf_counter() - t1, 3),
+                 # Reasoning models spend tokens in an analysis channel first: when the budget runs out
+                 # the text is that analysis, not an answer. The caller must not parse it.
+                 truncated=bool(gen_tokens is not None and gen_tokens >= max_tokens))
         except Exception as e:  # noqa: BLE001
             emit(event="error", stage="generate", error=f"{type(e).__name__}: {e}",
                  trace=traceback.format_exc()[-2000:])

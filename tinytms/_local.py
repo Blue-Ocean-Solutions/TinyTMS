@@ -112,6 +112,7 @@ class Generation:
     generation_tps: float | None
     peak_memory_gb: float | None
     wall_s: float
+    truncated: bool = False  # the worker hit max_tokens: the text is not a finished answer
 
 
 class Worker:
@@ -147,7 +148,8 @@ class Worker:
         self._p.stdin.flush()
         r = self._next(timeout, expect="result")
         return Generation(r["text"], r.get("prompt_tokens"), r.get("generation_tokens"),
-                          r.get("generation_tps"), r.get("peak_memory_gb"), float(r["wall_s"]))
+                          r.get("generation_tps"), r.get("peak_memory_gb"), float(r["wall_s"]),
+                          bool(r.get("truncated", False)))
 
     def close(self) -> None:
         if self._p is not None:

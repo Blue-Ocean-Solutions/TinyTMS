@@ -104,6 +104,14 @@ def test_same_origin_or_headerless_post_is_served(app, hdr):
     assert call(app, "POST", "/checkin", body, ctype, extra=hdr)[0] == "200 OK"
 
 
+@pytest.mark.parametrize("sfs,expected", [("cross-site", "403 Forbidden"), ("same-site", "403 Forbidden"),
+                                          ("same-origin", "200 OK"), ("none", "200 OK")])
+def test_sec_fetch_site_is_honoured(app, sfs, expected):
+    # Modern browsers send Sec-Fetch-Site on every POST; anything but this origin (or a direct navigation) is refused.
+    body, ctype = multipart({"mode": "fixture", "fixture": "accept"}, {})
+    assert call(app, "POST", "/checkin", body, ctype, extra={"HTTP_SEC_FETCH_SITE": sfs})[0] == expected
+
+
 @pytest.mark.parametrize("fields", [{"mode": "api"}, {"mode": "auto"}, {"mode": "fixture", "fixture": "accept", "explain": "api"}])
 def test_paid_modes_need_explicit_opt_in(app, tmp_path, fields):
     body, ctype = multipart(fields, {})

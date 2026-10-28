@@ -116,8 +116,11 @@ the verdict is already fixed and does not change.
   not an outage, and stays an API `ERROR`. The receipt names provider and model per witness under `models`, keeps the
   failed API call under `calls`, and says why each witness fell back under `fallback`. A voice witness that falls
   back is `NO_MODEL`, so it HOLDs.
-- Tested with a FAKE worker that speaks the JSON-lines protocol (`tests/test_local_modes.py`); no local model was run
-  in this build. The command for a machine that has Glimmer cached and an `mlx_vlm` that loads `muse_glimmer`:
+- The pipeline is tested with a FAKE worker that speaks the JSON-lines protocol (`tests/test_local_modes.py`); the real
+  model was run once on metal, see «What is measured». Glimmer reasons in an analysis channel before answering, so the
+  worker reports `truncated` when the budget runs out and the witness is an ERROR, never a parsed guess
+  (`tests/test_local_glimmer_truncation.py`, real outputs as data). The command for a machine that has Glimmer cached
+  and an `mlx_vlm` that loads `muse_glimmer`:
 
 ```bash
 TINYTMS_LOCAL_PYTHON=/path/to/mlx-venv/bin/python python -m tinytms.cli checkin --mode local \
@@ -136,7 +139,13 @@ wall-clock seconds, input sha256, the request without base64 and the raw answer 
 - `python -m tinytms.cli checkin --mode api --load evals/public/boxes-pallet.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/silencio_16k.wav`:
   `receipts/20261028T153041947742Z-HOLD.json` (HOLD: `VOICE_NO_COUNT`, `COUNT_MISMATCH doc=12 vision=1`, `SEAL_MISSING voice`;
   the per-call records sit under `calls`).
-- Every API call made (model, UTC, HTTP status, seconds): `receipts/llamadas.json`, with per-model caps. With
+- Every API call made (model, UTC, HTTP status, seconds): `receipts/llamadas.json`, with per-model caps.
+- **Local mode, real** (2026-10-28, Apple M5 Max, Muse Glimmer 30B 4-bit through `mlx_vlm` 0.7.10, no network):
+  `python -m tinytms.cli checkin --mode local --load evals/public/boxes-pallet.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/es-doce-pallets-16k.wav`
+  → `receipts/20261028T165434299357Z-HOLD.json`: photo count 1 (the boxes sit on one pallet), paper pieces 12 / 4800 kg / seal MX-48213 / hazmat false,
+  voice `NO_MODEL` (no local speech-to-text) → HOLD. Wall-clock per witness is in the receipt. The first attempts with small
+  token budgets returned Glimmer's analysis channel instead of an answer; those raw outputs are kept as test data in
+  `tests/data/real-local-glimmer-truncated-20261028.json` and a truncated generation is now an explicit ERROR. With
   `TINYTMS_LANE` / `TINYTMS_LANE_CAPS` (e.g. `sam-3.1=20,muse-spark-1.3=25`) each record carries the lane and the
   client refuses a call once that lane's own records reach its cap (`lanes` in the ledger).
 - 2026-10-28, lane 3: `python scripts/live_eval.py --only voice-es --keys-dir keys-lane3 --save-test-data tests/data`
