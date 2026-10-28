@@ -1,0 +1,63 @@
+{
+ "provenance": "REAL meta-api 2026-10-28T16:06:23.928289Z",
+ "witness": "voice",
+ "model": "muse-voice-transcribe-1.0",
+ "utc": "2026-10-28T16:06:23.928289Z",
+ "http": 200,
+ "s": 3.006,
+ "input": {
+  "name": "es-doce-pallets-16k.wav",
+  "sha256": "556f30380504357582c87bbc52f08a92a5a631d12139e1d77508d4df29f2e1ea"
+ },
+ "concept": null,
+ "request": {
+  "multipart": {
+   "audio": "<wav 367710 bytes sha256=556f30380504357582c87bbc52f08a92a5a631d12139e1d77508d4df29f2e1ea>",
+   "request": {
+    "audioEncoding": "WAV",
+    "languageBias": [
+     "Spanish",
+     "English"
+    ],
+    "mode": "PUSH_TO_TALK",
+    "model": "muse-voice-transcribe-1.0"
+   }
+  }
+ },
+ "media": {
+  "converted": false,
+  "original": {
+   "channels": 1,
+   "frames": 181807,
+   "rate": 16000,
+   "sample_width": 2
+  },
+  "original_sha256": "556f30380504357582c87bbc52f08a92a5a631d12139e1d77508d4df29f2e1ea",
+  "sent": {
+   "channels": 1,
+   "rate": 16000
+  },
+  "sent_sha256": "556f30380504357582c87bbc52f08a92a5a631d12139e1d77508d4df29f2e1ea"
+ },
+ "receipt": "20261028T160626939074Z-HOLD.json",
+ "extracted_from": "calls.voice of the signed check-in receipt (raw answer complete: 281 chars < 2000 limit)",
+ "response_sse": null,
+ "response_json": {
+  "sessionId": "voyager/transcribe/54206BFB2B424690BBF5491C3A5B090C",
+  "transcript": "Buenas, aquí Ramón, del tráiler cuatro. Traigo doce payettes de madera. El sello SMX SMX guión cuatro ocho dos uno tres. Peso cuatro mil ochocientos kilos..",
+  "audioDurationMs": 11440,
+  "turns": []
+ },
+ "witness_at_record_time": {
+  "audio_duration_ms": 11440,
+  "count": null,
+  "detail": "no count found in transcript",
+  "language": null,
+  "model": "muse-voice-transcribe-1.0",
+  "provider": "meta-api",
+  "seal": "SMX-48213",
+  "source_sha256": "556f30380504357582c87bbc52f08a92a5a631d12139e1d77508d4df29f2e1ea",
+  "status": "OK",
+  "transcript": "Buenas, aquí Ramón, del tráiler cuatro. Traigo doce payettes de madera. El sello SMX SMX guión cuatro ocho dos uno tres. Peso cuatro mil ochocientos kilos.."
+ }
+}

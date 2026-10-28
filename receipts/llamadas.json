@@ -5,9 +5,23 @@
   "muse-voice-transcribe-1.0": 20
  },
  "cuenta": {
-  "muse-voice-transcribe-1.0": 5,
-  "sam-3.1": 14,
-  "muse-spark-1.3": 6
+  "muse-voice-transcribe-1.0": 8,
+  "sam-3.1": 16,
+  "muse-spark-1.3": 15
+ },
+ "lanes": {
+  "F1-api-tinytms-3": {
+   "cuenta": {
+    "muse-voice-transcribe-1.0": 3,
+    "muse-spark-1.3": 9,
+    "sam-3.1": 2
+   },
+   "tope": {
+    "sam-3.1": 20,
+    "muse-spark-1.3": 25,
+    "muse-voice-transcribe-1.0": 10
+   }
+  }
  },
  "llamadas": [
   {
@@ -209,6 +223,132 @@
    "http": 200,
    "s": 0.912,
    "origen": "scripts/live_eval.py"
+  },
+  {
+   "modelo": "muse-voice-transcribe-1.0",
+   "endpoint": "/asr/transcribe",
+   "utc": "2026-10-28T16:02:44.350755Z",
+   "http": 200,
+   "s": 2.98,
+   "origen": "scripts/live_eval.py",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-10-28T16:03:42.649246Z",
+   "http": 200,
+   "s": 3.575,
+   "origen": "scripts/explain_receipt.py",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-10-28T16:03:58.870724Z",
+   "http": 200,
+   "s": 2.896,
+   "origen": "scripts/explain_receipt.py",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-10-28T16:04:24.906572Z",
+   "http": 200,
+   "s": 2.895,
+   "origen": "scripts/explain_receipt.py",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-10-28T16:04:45.730519Z",
+   "http": 200,
+   "s": 4.307,
+   "origen": "scripts/explain_receipt.py",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-10-28T16:04:55.157394Z",
+   "http": 200,
+   "s": 4.376,
+   "origen": "scripts/explain_receipt.py",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-10-28T16:05:07.108727Z",
+   "http": 200,
+   "s": 2.119,
+   "origen": "cli checkin",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-10-28T16:05:09.235156Z",
+   "http": 200,
+   "s": 2.24,
+   "origen": "cli checkin",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "muse-voice-transcribe-1.0",
+   "endpoint": "/asr/transcribe",
+   "utc": "2026-10-28T16:05:11.478347Z",
+   "http": 200,
+   "s": 2.736,
+   "origen": "cli checkin",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-10-28T16:05:14.236419Z",
+   "http": 200,
+   "s": 3.918,
+   "origen": "cli explain",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-10-28T16:06:19.783133Z",
+   "http": 200,
+   "s": 2.236,
+   "origen": "cli checkin",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-10-28T16:06:22.026601Z",
+   "http": 200,
+   "s": 1.899,
+   "origen": "cli checkin",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "muse-voice-transcribe-1.0",
+   "endpoint": "/asr/transcribe",
+   "utc": "2026-10-28T16:06:23.928289Z",
+   "http": 200,
+   "s": 3.006,
+   "origen": "cli checkin",
+   "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-10-28T16:06:26.957731Z",
+   "http": 200,
+   "s": 3.811,
+   "origen": "cli explain",
+   "lane": "F1-api-tinytms-3"
   }
  ]
 }

@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from ._local import (
@@ -30,11 +31,19 @@ PROVIDER = "local-mlx"
 PATH_ENV = "TINYTMS_GLIMMER_PATH"
 
 COUNT_PROMPT = (
-    'Count the {concept}s fully or partly visible in this image. Return ONLY JSON: {{"count": <integer>}}. '
-    'If you cannot count them reliably return {{"count": null}}.'
+    "How many {concept}s are fully or partly visible in this image? "
+    "Answer with a single integer and nothing else. If you cannot tell, answer: unknown"
 )
+_SINGLE_INT = re.compile(r"\s*(\d{1,4})\s*\.?\s*")
 
-__all__ = ["LocalVLM", "LocalModelError", "mlx_vlm_version", "vision_local", "doc_local"]
+
+def parse_single_integer(text: str) -> int | None:
+    """The answer only if it IS a single integer (an optional final period allowed); prose -> None."""
+    m = _SINGLE_INT.fullmatch(text)
+    return int(m.group(1)) if m else None
+
+
+__all__ = ["LocalVLM", "LocalModelError", "mlx_vlm_version", "vision_local", "doc_local", "parse_single_integer"]
 
 
 def mlx_vlm_version(python: str | None = None) -> str | None:
@@ -87,14 +96,13 @@ def vision_local(vlm: LocalVLM, image: str | Path, concept: str = "pallet") -> V
     meta = dict(model=f"{GLIMMER_MODEL_ID}@local", provider=PROVIDER,
                 source_sha256=sha256_file(image), concept=concept)
     try:
-        g = vlm.describe(image, COUNT_PROMPT.format(concept=concept), max_tokens=32)
-        data = parse_json_text(g.text)
-    except (LocalModelError, ValueError) as e:
+        g = vlm.describe(image, COUNT_PROMPT.format(concept=concept), max_tokens=16)
+    except LocalModelError as e:
         return VisionWitness(status="ERROR", detail=f"{type(e).__name__}: {e}", **meta)
-    n = data.get("count") if isinstance(data, dict) else None
-    if not isinstance(n, int) or isinstance(n, bool):
-        return VisionWitness(status="OK", count=None, detail=f"no count in output: {g.text[:200]!r}", **meta)
-    return VisionWitness(status="OK", count=n, detail=f"wall_s={g.wall_s}", **meta)
+    n = parse_single_integer(g.text)
+    if n is None:
+        return VisionWitness(status="OK", count=None, detail=f"not a single integer: {g.text[:200]!r}", **meta)
+    return VisionWitness(status="OK", count=n, detail=f"answer={g.text.strip()!r} wall_s={g.wall_s}", **meta)
 
 
 def doc_local(vlm: LocalVLM, image: str | Path) -> DocWitness:

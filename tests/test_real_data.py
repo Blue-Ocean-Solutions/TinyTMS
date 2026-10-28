@@ -79,17 +79,70 @@ def test_real_spark_incomplete_is_error():
 
 
 def test_real_voice_silence_is_empty_and_holds():
-    for d in load("voice"):
+    for d in (x for x in load("voice") if x["input"]["name"] == "silencio_16k.wav"):
         assert set(d["response_json"]) >= {"sessionId", "transcript", "audioDurationMs", "turns"}
         w = voice_from_transcript(d["response_json"], model=d["model"], **META)
         assert (w.status, w.transcript, w.count, w.seal) == ("OK", "", None, None)
         assert w.detail == "empty transcript" and w.audio_duration_ms == d["response_json"]["audioDurationMs"]
 
 
+def real_voice_es():
+    out = [d for d in load("voice") if d["input"]["name"] == "es-doce-pallets-16k.wav"]
+    assert out, "no real transcript of evals/voice/es-doce-pallets-16k.wav recorded"
+    return out
+
+
+# SYNTHETIC-TTS note (evals/PROCEDENCIA.md), said: "Traigo doce pallets de madera. El sello es M X guión cuatro
+# ocho dos uno tres." Transcribed three times on 2026-10-28, it came back three ways (the ASR is not deterministic;
+# this is what it WROTE). Expected parse per transcript: units "payets"/"pajets"/"payettes", "guión" is the seal's
+# dash, a letter group repeated back to back is one stutter. "SMX" (the ASR fused "es MX") is NOT guessed back to
+# "MX": that seal reads SMX-48213 and the judge HOLDs on SEAL_MISMATCH. Fail closed. The weight sentence after the
+# period never leaks into the seal.
+VOICE_ES_EXPECTED = {
+    "Traigo doce payets de madera. El sello es MX guión cuatro ocho dos uno tres.": (12, "MX-48213"),
+    "Traigo doce pajets de madera. El sello es MX MX guión cuatro ocho dos uno tres.": (12, "MX-48213"),
+    "Traigo doce payettes de madera. El sello SMX SMX guión cuatro ocho dos uno tres.": (12, "SMX-48213"),
+}
+
+
+def test_real_voice_es_parses_count_and_seal():
+    seen = set()
+    for d in real_voice_es():
+        t = d["response_json"]["transcript"]
+        (key,) = [k for k in VOICE_ES_EXPECTED if k in t]
+        seen.add(key)
+        w = voice_from_transcript(d["response_json"], model=d["model"], **META)
+        assert (w.status, w.count, w.seal) == ("OK", *VOICE_ES_EXPECTED[key]), t
+        assert w.audio_duration_ms == d["response_json"]["audioDurationMs"]
+    assert seen == set(VOICE_ES_EXPECTED), "every recorded variant is covered by a real file"
+
+
+def test_seal_stutter_collapse_is_letters_only():
+    from tinytms.adapters import parse_seal
+
+    assert parse_seal("el sello es MX MX guión cuatro ocho dos uno tres.") == "MX-48213"
+    assert parse_seal("el sello es MX cuatro cuatro ocho dos.") == "MX4482"  # repeated digits are digits
+    assert parse_seal("el sello es MX guión.") is None  # no digits: no seal
+
+
+def test_judge_on_real_es_voice_and_spark_agree_on_count_and_seal():
+    spark = next(d for d in load("spark") if d["response_json"].get("status") == "completed")
+    sam = next(d for d in load("sam") if d["input"]["name"] == "boxes-pallet.jpg" and d["concept"] == "pallet")
+    v = vision_from_sam(sam["response_sse"], model=sam["model"], concept="pallet", **META)
+    doc = doc_from_spark(spark["response_json"], model=spark["model"], **META)
+    for d in real_voice_es():
+        a = voice_from_transcript(d["response_json"], model=d["model"], **META)
+        verdict = judge(v, doc, a, Limits())
+        if a.seal == "SMX-48213":
+            assert verdict.reasons == ("COUNT_MISMATCH doc=12 vision=1 voice=12", "SEAL_MISMATCH doc=MX48213 voice=SMX48213")
+        else:  # paper and voice agree on count and seal; only the photo disagrees
+            assert verdict.reasons == ("COUNT_MISMATCH doc=12 vision=1 voice=12",) and verdict.checks["seal"] == "pass"
+
+
 def test_judge_on_real_witnesses_holds():
     sam = next(d for d in load("sam") if d["input"]["name"] == "boxes-pallet.jpg" and d["concept"] == "pallet")
     spark = next(d for d in load("spark") if d["response_json"].get("status") == "completed")
-    voice = load("voice")[0]
+    voice = next(d for d in load("voice") if d["input"]["name"] == "silencio_16k.wav")
     v = vision_from_sam(sam["response_sse"], model=sam["model"], concept="pallet", **META)
     doc = doc_from_spark(spark["response_json"], model=spark["model"], **META)
     a = voice_from_transcript(voice["response_json"], model=voice["model"], **META)

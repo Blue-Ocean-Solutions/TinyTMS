@@ -42,6 +42,22 @@ VOICE_LANGUAGE_BIAS = ["Spanish", "English"]
 
 # Per-model call caps for one call log (credits are real money). Over the cap -> ERROR, no request sent.
 DEFAULT_CAPS: dict[str, int] = {SAM_MODEL: 60, SPARK_MODEL: 60, VOICE_MODEL: 20}
+# Optional per-lane caps on the same ledger: TINYTMS_LANE names the lane (stamped on every record) and
+# TINYTMS_LANE_CAPS="sam-3.1=20,muse-spark-1.3=25" caps that lane's own records only.
+LANE_ENV, LANE_CAPS_ENV = "TINYTMS_LANE", "TINYTMS_LANE_CAPS"
+
+
+def parse_caps(spec: str) -> dict[str, int]:
+    """'model=n,model=n' -> {model: n}. A malformed entry raises ValueError: a cap is never silently dropped."""
+    out: dict[str, int] = {}
+    for part in (x.strip() for x in spec.split(",")):
+        if not part:
+            continue
+        model, sep, n = part.rpartition("=")
+        if not sep or not model.strip() or not n.strip().isdigit():
+            raise ValueError(f"bad cap entry {part!r}; expected model=integer")
+        out[model.strip()] = int(n)
+    return out
 
 DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=60.0, pool=10.0)
 
@@ -75,6 +91,16 @@ class ApiResult:
     utc: str = ""
     request: dict[str, Any] | None = None  # the request WITHOUT base64 payloads
     media: dict[str, Any] | None = None  # what was sent vs. the original (sha256, size, conversion)
+
+
+def is_transport_failure(r: ApiResult) -> bool:
+    """The API was unreachable or answered non-200 (network, timeout, HTTP). A 200 with a bad body,
+    a media error or a budget refusal is NOT a transport failure: those are answers, not outages."""
+    if r.status != "ERROR":
+        return False
+    if r.http_status is not None:
+        return r.http_status != 200
+    return r.detail.startswith(("timeout:", "transport:"))
 
 
 # --- media ---------------------------------------------------------------------------------
@@ -222,6 +248,8 @@ class MetaClient:
         call_log: str | Path | None = None,
         caps: dict[str, int] | None = None,
         origin: str = "",
+        lane: str | None = None,
+        lane_caps: dict[str, int] | None = None,
     ) -> None:
         key = api_key if api_key is not None else os.environ.get(KEY_ENV, "")
         if not key.strip():
@@ -230,6 +258,8 @@ class MetaClient:
         self._call_log = Path(call_log) if call_log else None
         self._caps = DEFAULT_CAPS if caps is None else caps
         self._origin = origin
+        self._lane = (os.environ.get(LANE_ENV, "") if lane is None else lane).strip()
+        self._lane_caps = parse_caps(os.environ.get(LANE_CAPS_ENV, "")) if lane_caps is None else lane_caps
         self._client = httpx.Client(
             base_url=base_url.rstrip("/"),
             timeout=timeout,
@@ -263,12 +293,27 @@ class MetaClient:
             return []
         return data.get("llamadas", []) if isinstance(data, dict) else []
 
+    def _ledger_lanes(self) -> dict[str, Any]:
+        try:
+            data = json.loads(self._call_log.read_text(encoding="utf-8")) if self._call_log else {}
+        except (OSError, ValueError):
+            return {}
+        lanes = data.get("lanes") if isinstance(data, dict) else None
+        return lanes if isinstance(lanes, dict) else {}
+
     def _over_cap(self, model: str) -> str:
-        cap = self._caps.get(model)
-        if cap is None or self._call_log is None:
+        if self._call_log is None:
             return ""
-        n = sum(1 for c in self._logged() if c.get("modelo") == model)
-        return f"budget cap reached for {model}: {n}/{cap} calls in {self._call_log.name}" if n >= cap else ""
+        logged = self._logged()
+        cap = self._caps.get(model)
+        n = sum(1 for c in logged if c.get("modelo") == model)
+        if cap is not None and n >= cap:
+            return f"budget cap reached for {model}: {n}/{cap} calls in {self._call_log.name}"
+        cap = self._lane_caps.get(model) if self._lane else None
+        n = sum(1 for c in logged if c.get("modelo") == model and c.get("lane") == self._lane)
+        if cap is not None and n >= cap:
+            return f"lane budget cap reached for {model}: {n}/{cap} calls by {self._lane} in {self._call_log.name}"
+        return ""
 
     def _log(self, model: str, endpoint: str, utc: str, http: int | None, s: float, note: str = "") -> None:
         if self._call_log is None:
@@ -277,14 +322,28 @@ class MetaClient:
         rec = {"modelo": model, "endpoint": endpoint, "utc": utc, "http": http, "s": s}
         if self._origin:
             rec["origen"] = self._origin
+        if self._lane:
+            rec["lane"] = self._lane
         if note:
             rec["nota"] = self._redact(note)[:300]
         calls.append(rec)
         counts: dict[str, int] = {}
+        lanes: dict[str, dict[str, Any]] = {}
         for c in calls:
             counts[c["modelo"]] = counts.get(c["modelo"], 0) + 1
+            if c.get("lane"):
+                lc = lanes.setdefault(c["lane"], {}).setdefault("cuenta", {})
+                lc[c["modelo"]] = lc.get(c["modelo"], 0) + 1
+        prev = self._ledger_lanes()
+        for name, v in lanes.items():
+            caps = self._lane_caps if name == self._lane and self._lane_caps else prev.get(name, {}).get("tope")
+            if caps:
+                v["tope"] = caps
         self._call_log.parent.mkdir(parents=True, exist_ok=True)
-        body = {"tope": self._caps, "cuenta": counts, "llamadas": calls}
+        body: dict[str, Any] = {"tope": self._caps, "cuenta": counts}
+        if lanes:
+            body["lanes"] = lanes
+        body["llamadas"] = calls
         self._call_log.write_text(json.dumps(body, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
     # transport --------------------------------------------------------------------------

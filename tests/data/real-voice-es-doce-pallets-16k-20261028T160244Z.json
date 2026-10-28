@@ -1,0 +1,62 @@
+{
+ "provenance": "REAL meta-api 2026-10-28T16:02:44.350755Z",
+ "witness": "voice",
+ "model": "muse-voice-transcribe-1.0",
+ "utc": "2026-10-28T16:02:44.350755Z",
+ "http": 200,
+ "s": 2.98,
+ "input": {
+  "name": "es-doce-pallets-16k.wav",
+  "sha256": "556f30380504357582c87bbc52f08a92a5a631d12139e1d77508d4df29f2e1ea"
+ },
+ "concept": null,
+ "request": {
+  "multipart": {
+   "request": {
+    "model": "muse-voice-transcribe-1.0",
+    "audioEncoding": "WAV",
+    "mode": "PUSH_TO_TALK",
+    "languageBias": [
+     "Spanish",
+     "English"
+    ]
+   },
+   "audio": "<wav 367710 bytes sha256=556f30380504357582c87bbc52f08a92a5a631d12139e1d77508d4df29f2e1ea>"
+  }
+ },
+ "media": {
+  "original_sha256": "556f30380504357582c87bbc52f08a92a5a631d12139e1d77508d4df29f2e1ea",
+  "original": {
+   "channels": 1,
+   "sample_width": 2,
+   "rate": 16000,
+   "frames": 181807
+  },
+  "converted": false,
+  "sent_sha256": "556f30380504357582c87bbc52f08a92a5a631d12139e1d77508d4df29f2e1ea",
+  "sent": {
+   "channels": 1,
+   "rate": 16000
+  }
+ },
+ "receipt": "live-voice-es-doce-pallets-16k-20261028T160244Z.json",
+ "response_sse": null,
+ "response_json": {
+  "sessionId": "voyager/transcribe/D4961E19908E429E9A335AB4C2B0ABB6",
+  "transcript": "Buenas, aquí Ramón, del tráiler cuatro. Traigo doce payets de madera. El sello es MX guión cuatro ocho dos uno tres. Peso cuatro mil ochocientos kilos.",
+  "audioDurationMs": 11440,
+  "turns": []
+ },
+ "witness_at_record_time": {
+  "status": "OK",
+  "model": "muse-voice-transcribe-1.0",
+  "provider": "meta-api",
+  "source_sha256": "556f30380504357582c87bbc52f08a92a5a631d12139e1d77508d4df29f2e1ea",
+  "detail": "no count found in transcript",
+  "transcript": "Buenas, aquí Ramón, del tráiler cuatro. Traigo doce payets de madera. El sello es MX guión cuatro ocho dos uno tres. Peso cuatro mil ochocientos kilos.",
+  "language": null,
+  "count": null,
+  "seal": null,
+  "audio_duration_ms": 11440
+ }
+}

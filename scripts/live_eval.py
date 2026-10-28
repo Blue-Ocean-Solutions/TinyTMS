@@ -2,12 +2,13 @@
 
 Needs MODEL_API_KEY in the environment (never on the command line). Without it: exit 3, nothing run.
 
-    python scripts/live_eval.py [--evals evals] [--keys-dir keys-lane2] [--save-test-data tests/data] [--only sam,spark,voice]
+    python scripts/live_eval.py [--evals evals] [--keys-dir keys-lane2] [--save-test-data tests/data] [--only sam,spark,voice,voice-es]
 
 Cases (evals/PROCEDENCIA.md):
   SAM 3.1    evals/public/boxes-moving.jpg, evals/public/boxes-pallet.jpg  x  concepts "cardboard box", "pallet"
   Spark 1.3  evals/doc/carta_sintetica.png -> JSON fields
-  Voice      evals/voice/silencio_16k.wav  -> empty transcript expected
+  Voice      evals/voice/silencio_16k.wav  -> empty transcript expected            (case voice)
+  Voice      evals/voice/es-doce-pallets-16k.wav -> SYNTHETIC-TTS Spanish note     (case voice-es)
 
 Each receipt holds model, provider meta-api, utc, seconds, sha256 of the input (original file), the request
 WITHOUT base64 and the raw answer truncated to 2,000 chars with SAM mask data removed. Every call is also
@@ -41,7 +42,8 @@ from tinytms.witness import DocWitness, VisionWitness, VoiceWitness, sha256_file
 SAM_IMAGES = ("public/boxes-moving.jpg", "public/boxes-pallet.jpg")
 SAM_CONCEPTS = ("cardboard box", "pallet")
 DOC = "doc/carta_sintetica.png"
-VOICE = "voice/silencio_16k.wav"
+# case -> (file, tag in receipt/test-data names; the silence case keeps its original untagged names)
+VOICES = {"voice": ("voice/silencio_16k.wav", ""), "voice-es": ("voice/es-doce-pallets-16k.wav", "es-doce-pallets-16k-")}
 
 
 def _slug(s: str) -> str:
@@ -74,7 +76,7 @@ def main() -> int:
     ap.add_argument("--keys-dir", default="keys-lane2")
     ap.add_argument("--calls-log", default=None, help="default: <receipts-dir>/llamadas.json")
     ap.add_argument("--save-test-data", default=None, help="directory for real-<witness>-<utc>.json")
-    ap.add_argument("--only", default="sam,spark,voice")
+    ap.add_argument("--only", default="sam,spark,voice", help="comma list of sam, spark, voice, voice-es")
     a = ap.parse_args()
 
     log = Path(a.calls_log) if a.calls_log else Path(a.receipts_dir) / "llamadas.json"
@@ -86,13 +88,14 @@ def main() -> int:
 
     root = Path(a.evals)
     only = set(a.only.split(","))
-    jobs: list[tuple[str, Path, str]] = []
+    jobs: list[tuple[str, Path, str, str]] = []  # kind, input, SAM concept, name tag
     if "sam" in only:
-        jobs += [("sam", root / img, c) for img in SAM_IMAGES for c in SAM_CONCEPTS]
+        jobs += [("sam", root / img, c, f"{_slug(Path(img).stem)}-{_slug(c)}-") for img in SAM_IMAGES for c in SAM_CONCEPTS]
     if "spark" in only:
-        jobs.append(("spark", root / DOC, ""))
-    if "voice" in only:
-        jobs.append(("voice", root / VOICE, ""))
+        jobs.append(("spark", root / DOC, "", ""))
+    for case, (rel, tag) in VOICES.items():
+        if case in only:
+            jobs.append(("voice", root / rel, "", tag))
 
     sk = load_or_create_key(a.keys_dir)
     # Receipts are public: record the command relative to the repo, never the machine's interpreter or paths.
@@ -104,7 +107,7 @@ def main() -> int:
     command = " ".join(shlex.quote(x) for x in ["python", script, *sys.argv[1:]])
     n_ok = 0
     with client:
-        for kind, path, concept in jobs:
+        for kind, path, concept, tag in jobs:
             sha = sha256_file(path)
             if kind == "sam":
                 r = client.sam_segment(path, concept)
@@ -128,7 +131,7 @@ def main() -> int:
             }
             if concept:
                 body["concept"] = concept
-            stem = f"live-{kind}-" + (f"{_slug(path.stem)}-{_slug(concept)}-" if concept else "") + _stamp(r.utc)
+            stem = f"live-{kind}-{tag}" + _stamp(r.utc)
             rp = write_receipt(sign_receipt(body, sk), a.receipts_dir, stem)
             n_ok += r.status == "OK"
 
@@ -145,7 +148,7 @@ def main() -> int:
                     "response_json": r.data,
                     "witness_at_record_time": w.to_dict(),
                 }
-                tname = f"real-{kind}-" + (f"{_slug(path.stem)}-{_slug(concept)}-" if concept else "") + _stamp(r.utc)
+                tname = f"real-{kind}-{tag}" + _stamp(r.utc)
                 (td / f"{tname}.json").write_text(json.dumps(rec, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
             summary = (f"count={w.count}" if isinstance(w, (VisionWitness, VoiceWitness)) else
