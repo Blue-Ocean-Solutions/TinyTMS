@@ -32,6 +32,29 @@ MAX_UPLOAD_BYTES = 40 * 1024 * 1024
 SAFE_NAME = re.compile(r"[A-Za-z0-9._-]+")
 FILE_FIELDS = ("load", "doc", "voice")
 LANGS = ("es", "en")
+# The page is a dock-side demo on one machine. Requests must name this machine (Host allowlist stops DNS
+# rebinding), a browser POST must come from this origin (Origin/Referer check stops cross-site forms), and
+# spending Meta API credits from the page needs an explicit --allow-api at start-up.
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+PAID_MODES = ("api", "auto")
+
+
+def host_name(value: str) -> str:
+    """'localhost:8765' -> 'localhost', '[::1]:8765' -> '::1'; lower-case, no port."""
+    v = (value or "").strip().lower()
+    if v.startswith("["):
+        return v[1:v.find("]")] if "]" in v else v[1:]
+    return v.rsplit(":", 1)[0] if v.count(":") == 1 else v
+
+
+def origin_host(header: str) -> str | None:
+    """Host of an Origin/Referer header; None when it cannot be parsed (e.g. 'null')."""
+    from urllib.parse import urlsplit
+
+    try:
+        return (urlsplit(header.strip()).hostname or "").lower() or None
+    except ValueError:
+        return None
 
 StartResponse = Callable[..., Any]
 
@@ -177,8 +200,11 @@ def make_app(
     max_weight_kg: float = DEFAULT_MAX_WEIGHT_KG,
     client_factory: ClientFactory | None = None,
     max_upload_bytes: int = MAX_UPLOAD_BYTES,
+    allow_api: bool = False,
+    allowed_hosts: Iterable[str] | None = None,
 ) -> Callable[[dict[str, Any], StartResponse], list[bytes]]:
     rdir, fdir = Path(receipts_dir), Path(fixtures_dir)
+    hosts = {h.lower() for h in (allowed_hosts if allowed_hosts is not None else LOOPBACK_HOSTS)}
 
     def send(start: StartResponse, status: str, body: bytes, ctype: str = "text/html; charset=utf-8") -> list[bytes]:
         start(status, [("Content-Type", ctype), ("Content-Length", str(len(body))),
@@ -191,9 +217,18 @@ def make_app(
         return send(start, status, body)
 
     def checkin(environ: dict[str, Any], start: StartResponse) -> list[bytes]:
+        # A browser POST carries Origin (or at least Referer); either must name this machine. A request
+        # with neither is not a browser form and cannot be cross-site.
+        for header in ("HTTP_ORIGIN", "HTTP_REFERER"):
+            if environ.get(header):
+                if origin_host(environ[header]) not in hosts:
+                    return error(start, "403 Forbidden", "cross-site request refused: the form must be posted from this server")
+                break
         try:
             n = int(environ.get("CONTENT_LENGTH") or 0)
         except ValueError:
+            return error(start, "400 Bad Request", "bad Content-Length")
+        if n < 0:
             return error(start, "400 Bad Request", "bad Content-Length")
         if n > max_upload_bytes:
             return error(start, "413 Payload Too Large", f"upload larger than {max_upload_bytes} bytes")
@@ -204,6 +239,9 @@ def make_app(
                 raise InputError(f"mode must be one of {MODES}")
             explain = fields.get("explain", "none")
             lang = fields.get("lang", "es")
+            if not allow_api and (mode in PAID_MODES or explain == "api"):
+                return error(start, "403 Forbidden",
+                             "this page may not spend Meta API credits: start the server with --allow-api")
             fixture_dir = None
             if mode == "fixture":
                 case = fields.get("fixture", "")
@@ -240,6 +278,8 @@ def make_app(
 
     def app(environ: dict[str, Any], start: StartResponse) -> list[bytes]:
         method, path = environ.get("REQUEST_METHOD", "GET"), environ.get("PATH_INFO", "/") or "/"
+        if host_name(environ.get("HTTP_HOST") or environ.get("SERVER_NAME", "")) not in hosts:
+            return error(start, "403 Forbidden", "host not allowed: this page answers only to this machine")
         if path == "/" and method in ("GET", "HEAD"):
             return send(start, "200 OK", form_html(fixture_cases(fdir)))
         if path == "/checkin":
@@ -264,8 +304,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--fixtures-dir", default="fixtures")
     ap.add_argument("--calls-log", default=None)
     ap.add_argument("--max-weight-kg", type=float, default=DEFAULT_MAX_WEIGHT_KG)
+    ap.add_argument("--allow-api", action="store_true",
+                    help="let the page use the Meta Model API (modes api/auto, explain=api); off by default")
     a = ap.parse_args(argv)
-    app = make_app(a.receipts_dir, a.keys_dir, a.fixtures_dir, a.calls_log, a.max_weight_kg)
+    app = make_app(a.receipts_dir, a.keys_dir, a.fixtures_dir, a.calls_log, a.max_weight_kg,
+                   allow_api=a.allow_api, allowed_hosts=set(LOOPBACK_HOSTS) | {a.host.lower()})
     with make_server(a.host, a.port, app) as srv:
         print(f"tinyTMS web on http://{a.host}:{a.port}/  (Ctrl-C to stop)", file=sys.stderr)
         try:

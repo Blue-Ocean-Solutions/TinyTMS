@@ -99,6 +99,10 @@ the verdict is already fixed and does not change.
 - **What it does NOT do.** No login, no TLS, no rate limit, no background jobs: it is a dock-side demo for one
   machine and binds `127.0.0.1` by default. Uploads larger than 40 MiB are refused. Uploads live in a temporary
   directory for the request only; the receipt keeps each file's sanitised name and sha256. Standard library only.
+- **Fences.** Requests must name this machine (`Host` must be `127.0.0.1`, `localhost`, `::1` or the `--host` given;
+  anything else is 403, which stops DNS rebinding). A browser `POST /checkin` must carry an `Origin` or `Referer` from
+  this server (a cross-site form gets 403). The page cannot spend Meta API credits unless the server was started with
+  `--allow-api`: without it, modes `api`/`auto` and `explain=api` answer 403. A negative `Content-Length` is 400.
 
 ## Modo local y auto (local and auto modes)
 
