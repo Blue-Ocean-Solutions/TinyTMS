@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -15,9 +16,23 @@ from typing import Any
 PYTHON_ENV = "TINYTMS_LOCAL_PYTHON"
 WORKER = Path(__file__).with_name("_mlx_worker.py")
 
+_MACHINE_PATH_RE = re.compile(r"/(?:Users|private|home|Volumes)/\S*")
+
+
+def redact_machine_paths(text: str) -> str:
+    """Replace user/temp/volume paths in free text: an error names its class, never this machine."""
+    return _MACHINE_PATH_RE.sub("<machine-path>", text)
+
 
 class LocalModelError(RuntimeError):
-    """Explicit failure of a local model (not cached, import/load crash, timeout...)."""
+    """Explicit failure of a local model (not cached, import/load crash, timeout...).
+
+    The message is redacted at construction: tracebacks and cache paths from the worker never reach a
+    witness detail or a receipt.
+    """
+
+    def __init__(self, message: str = "") -> None:
+        super().__init__(redact_machine_paths(str(message)))
 
 
 class ModelNotCached(LocalModelError):
@@ -36,13 +51,22 @@ def hf_hub_cache() -> Path:
     return Path.home() / ".cache" / "huggingface" / "hub"
 
 
+def cache_label() -> str:
+    """Which setting the cache lookup used, by name: never the resolved path."""
+    if os.environ.get("HF_HUB_CACHE"):
+        return "HF_HUB_CACHE"
+    if os.environ.get("HF_HOME"):
+        return "HF_HOME/hub"
+    return "~/.cache/huggingface/hub"
+
+
 def resolve_cached_model(repo: str, override_env: str | None = None) -> Path:
     """Local snapshot dir for an HF repo, or LocalModelError. Never downloads."""
     if override_env and os.environ.get(override_env):
         p = Path(os.environ[override_env])
         if (p / "config.json").is_file():
             return p
-        raise ModelNotCached(f"{override_env}={p} has no config.json")
+        raise ModelNotCached(f"{override_env} is set but has no config.json")
     root = hf_hub_cache() / ("models--" + repo.replace("/", "--"))
     snaps = root / "snapshots"
     ref = root / "refs" / "main"
@@ -55,7 +79,7 @@ def resolve_cached_model(repo: str, override_env: str | None = None) -> Path:
         if (c / "config.json").is_file() and any(c.glob("*.safetensors")):
             return c
     raise ModelNotCached(
-        f"model {repo} not in local cache ({root}); this adapter does not download. "
+        f"model {repo} not in local cache ({cache_label()}); this adapter does not download. "
         f"Fetch it beforehand or set {override_env or 'HF_HUB_CACHE'}."
     )
 
@@ -113,7 +137,7 @@ class Worker:
             self._p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE, text=True, env=env, bufsize=1)
         except OSError as e:
-            raise LocalModelError(f"cannot start {self.python}: {e}") from e
+            raise LocalModelError(f"cannot start the {PYTHON_ENV} interpreter: {type(e).__name__}: {e}") from e
         threading.Thread(target=self._pump_out, daemon=True).start()
         threading.Thread(target=self._pump_err, daemon=True).start()
         self.hello = self._next(timeout, expect="hello")

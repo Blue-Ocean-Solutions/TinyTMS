@@ -2,9 +2,11 @@ import json
 import os
 import stat
 
+import pytest
 from nacl.signing import SigningKey
 
 from tinytms.receipt import (
+    MACHINE_PATH_PREFIXES,
     PRIVATE_KEY_FILE,
     PUBLIC_KEY_FILE,
     canonical_json,
@@ -64,6 +66,25 @@ def test_garbage_is_false_not_exception():
     assert not verify_receipt(b"not json")
     assert not verify_receipt({"signature": "zz", "public_key": "yy"})
     assert not verify_receipt([])  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("prefix", ["/Users/", "/private/", "/home/", "/Volumes/"])
+def test_sign_receipt_rejects_machine_paths(prefix):
+    assert prefix in MACHINE_PATH_PREFIXES
+    body = dict(BODY, command=f"python x --image {prefix}someone/photo.jpg")
+    with pytest.raises(ValueError):
+        sign_receipt(body, SigningKey.generate())
+
+
+def test_sign_receipt_rejects_nested_machine_paths():
+    body = dict(BODY, load={"worker": {"paths": ["ok", "/Users/someone/.cache/hf"]}})
+    with pytest.raises(ValueError):
+        sign_receipt(body, SigningKey.generate())
+
+
+def test_sign_receipt_accepts_relative_paths():
+    body = dict(BODY, image={"path": "evals/public/boxes-pallet.jpg"}, note="see receipts/x.json")
+    assert verify_receipt(sign_receipt(body, SigningKey.generate()))
 
 
 def test_key_files(tmp_path, capsys):
