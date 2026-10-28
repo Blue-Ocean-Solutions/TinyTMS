@@ -219,9 +219,14 @@ def doc_from_spark(
 
 # --- voice ---------------------------------------------------------------------------------
 
+# "payets", "pajets", "payettes": how Muse Voice Transcribe wrote "pallets" said in Spanish, three runs over the
+# same audio (real transcripts, tests/data/real-voice-es-*).
 _UNITS = (
-    r"pallets?|palets?|pal[eé]s|paletas?|tarimas?|skids?|cajas?|boxes|box|bultos?|piezas?|pieces?"
+    r"pallets?|palets?|pal[eé]s|payets?|pajets?|payettes?|paletas?|tarimas?|skids?|cajas?|boxes|box|bultos?|"
+    r"piezas?|pieces?"
 )
+# A spoken dash inside a seal id ("MX guión cuatro ocho...", same real transcript); "guion" is the RAE 2010 spelling.
+_SEAL_DASH = {"guión", "guion"}
 _WORDS: dict[str, int] = {
     # es
     "cero": 0, "un": 1, "uno": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
@@ -291,8 +296,14 @@ def parse_seal(transcript: str) -> str | None:
         low = t.lower()
         if low in _DIGIT_WORDS:
             out.append(str(_DIGIT_WORDS[low]))
+        elif low in _SEAL_DASH and out:
+            out.append("-")
         elif re.fullmatch(r"[A-Za-z0-9\-]+", t) and (any(ch.isdigit() for ch in t) or (t.isupper() and len(t) <= 3)):
-            out.append(t)
+            # "MX MX guión ..." (real transcript): a letter group repeated back to back is one ASR stutter.
+            # Letters only: "cuatro cuatro" stays 44. Residual risk, accepted and written down: a driver who
+            # really says "MX MX 48213" against a paper reading "MX-48213" would match (a "MXMX" paper HOLDs).
+            if not (t.isalpha() and out and out[-1] == t):
+                out.append(t)
         else:
             break
         if tok.endswith((".", ";")):
