@@ -6,12 +6,13 @@ Exit codes: 0 ACCEPT, 2 HOLD, 3 ERROR (bad input, I/O, internal failure).
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .adapters import doc_from_spark, from_fixture, vision_from_sam, voice_from_transcript
+from .adapters import call_record, doc_from_spark, from_fixture, vision_from_sam, voice_from_transcript
 from .meta_api import ApiResult, MetaClient, NoKey
 from .receipt import load_or_create_key, sign_receipt, write_receipt
 from .verify import DEFAULT_MAX_WEIGHT_KG, Limits, Verdict, judge
@@ -32,9 +33,13 @@ def _fixture_witnesses(fdir: Path, sha: dict[str, str]) -> Triple:
     return v, d, a
 
 
-def _api_witnesses(inp: dict[str, Path], sha: dict[str, str], concept: str) -> Triple:
+def _api_witnesses(
+    inp: dict[str, Path], sha: dict[str, str], concept: str, calls_log: Path | None = None,
+    calls: dict[str, Any] | None = None,
+) -> Triple:
+    """Real Meta API witnesses. `calls` (if given) is filled with a receipt record per call."""
     try:
-        client = MetaClient()
+        client = MetaClient(call_log=calls_log, origin="cli checkin")
     except NoKey as e:
         why = f"NoKey: {e}"
         return (
@@ -46,14 +51,18 @@ def _api_witnesses(inp: dict[str, Path], sha: dict[str, str], concept: str) -> T
     def err(cls: type[Witness], r: ApiResult, s: str) -> Any:
         return cls(status="ERROR", model=r.model, provider="meta-api", source_sha256=s, detail=r.detail)
 
+    out = calls if calls is not None else {}
     with client:
         r = client.sam_segment(inp["load"], concept)
-        v = (vision_from_sam(r.data, model=r.model, provider="meta-api", source_sha256=sha["load"], concept=concept)
-             if r.status == "OK" and r.data is not None else err(VisionWitness, r, sha["load"]))
+        out["vision"] = call_record(r)
+        v = (vision_from_sam(r.raw_text, model=r.model, provider="meta-api", source_sha256=sha["load"], concept=concept)
+             if r.status == "OK" and r.raw_text is not None else err(VisionWitness, r, sha["load"]))
         r = client.spark_extract_document(inp["doc"])
+        out["doc"] = call_record(r)
         d = (doc_from_spark(r.data, model=r.model, provider="meta-api", source_sha256=sha["doc"])
              if r.status == "OK" and r.data is not None else err(DocWitness, r, sha["doc"]))
         r = client.voice_transcribe(inp["voice"])
+        out["voice"] = call_record(r)
         a = (voice_from_transcript(r.data, model=r.model, provider="meta-api", source_sha256=sha["voice"])
              if r.status == "OK" and r.data is not None else err(VoiceWitness, r, sha["voice"]))
     return v, d, a
@@ -121,7 +130,9 @@ def checkin(args: argparse.Namespace) -> int:
         assert fdir is not None
         vision, doc, voice = _fixture_witnesses(fdir, sha)
     elif args.mode == "api":
-        vision, doc, voice = _api_witnesses(inp, sha, args.concept)
+        calls: dict[str, Any] = {}
+        log = Path(args.calls_log) if args.calls_log else Path(args.receipts_dir) / "llamadas.json"
+        vision, doc, voice = _api_witnesses(inp, sha, args.concept, log, calls)
     else:
         vision, doc, voice = _local_witnesses(inp, sha, args.concept)
 
@@ -142,6 +153,8 @@ def checkin(args: argparse.Namespace) -> int:
     }
     if args.mode == "fixture":
         body["provenance"] = "FIXTURE: witnesses are hand-written fixtures, not model outputs"
+    if args.mode == "api" and calls:
+        body["calls"] = calls
     if verdict.decision == "HOLD" and args.explain == "local":
         body["explanation"] = _explain_local(verdict, args.language)
 
@@ -154,7 +167,10 @@ def checkin(args: argparse.Namespace) -> int:
     for r in verdict.reasons:
         print(f"  reason: {r}")
     for k, w in witnesses.items():
-        print(f"  {k}: {w.status} model={w.model or '-'} provider={w.provider}" + (f" ({w.detail})" if w.detail else ""))
+        seen = (f" pieces={w.pieces} seal={w.seal}" if isinstance(w, DocWitness)
+                else f" count={w.count}" + (f" seal={w.seal}" if isinstance(w, VoiceWitness) else ""))
+        print(f"  {k}: {w.status} model={w.model or '-'} provider={w.provider}" + (seen if w.status == "OK" else "")
+              + (f" ({w.detail})" if w.detail else ""))
     if "explanation" in body:
         e = body["explanation"]
         print(f"  explanation[{e['status']}]: {e.get('text') or e.get('detail')}")
@@ -174,7 +190,8 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--max-weight-kg", type=float, default=DEFAULT_MAX_WEIGHT_KG)
     c.add_argument("--concept", default="pallet", help="SAM concept prompt")
     c.add_argument("--receipts-dir", default="receipts")
-    c.add_argument("--keys-dir", default="keys")
+    c.add_argument("--keys-dir", default=os.environ.get("TINYTMS_KEYS_DIR", "keys"))
+    c.add_argument("--calls-log", help="API call ledger (default: <receipts-dir>/llamadas.json)")
     c.add_argument("--explain", choices=("none", "local"), default="none",
                    help="on HOLD, explain reasons with the local LLM (never changes the verdict)")
     c.add_argument("--language", default="Spanish")

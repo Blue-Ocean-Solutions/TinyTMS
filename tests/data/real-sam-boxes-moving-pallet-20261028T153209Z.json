@@ -1,0 +1,66 @@
+{
+ "provenance": "REAL meta-api 2026-10-28T15:32:09.724034Z",
+ "witness": "sam",
+ "model": "sam-3.1",
+ "utc": "2026-10-28T15:32:09.724034Z",
+ "http": 200,
+ "s": 0.664,
+ "input": {
+  "name": "boxes-moving.jpg",
+  "sha256": "fa36659886549eced47c13530ec935d0a19c6b66d7cac5d0a9e17a32ca20c078"
+ },
+ "concept": "pallet",
+ "request": {
+  "model": "sam-3.1",
+  "stream": true,
+  "metadata": {
+   "include_confidence": "true"
+  },
+  "input": [
+   {
+    "type": "message",
+    "role": "user",
+    "content": [
+     {
+      "type": "input_text",
+      "text": "pallet"
+     },
+     {
+      "type": "input_image",
+      "image_url": "<data:image/jpeg;base64 250279 chars sha256=b79e7e9c4a7822f5…>"
+     }
+    ]
+   }
+  ]
+ },
+ "media": {
+  "original_sha256": "fa36659886549eced47c13530ec935d0a19c6b66d7cac5d0a9e17a32ca20c078",
+  "original_wh": [
+   1280,
+   960
+  ],
+  "mime": "image/jpeg",
+  "sent_sha256": "fa36659886549eced47c13530ec935d0a19c6b66d7cac5d0a9e17a32ca20c078",
+  "sent_wh": [
+   1280,
+   960
+  ],
+  "sent_bytes": 187690,
+  "resized": false
+ },
+ "receipt": "live-sam-boxes-moving-pallet-20261028T153209Z.json",
+ "response_sse": "event: response.created\ndata: {\"response\": {\"background\": false, \"created_at\": 1793201530.0, \"error\": null, \"id\": \"resp_6ae2157a10ddc2693bc04190\", \"incomplete_details\": null, \"instructions\": null, \"metadata\": {\"include_confidence\": \"true\"}, \"model\": \"sam-3.1\", \"object\": \"response\", \"output\": [], \"parallel_tool_calls\": true, \"service_tier\": \"auto\", \"status\": \"in_progress\", \"store\": true, \"temperature\": 1.0, \"tool_choice\": \"auto\", \"tools\": [], \"top_logprobs\": 0, \"top_p\": 1.0, \"truncation\": \"disabled\"}, \"sequence_number\": 0, \"type\": \"response.created\"}\n\nevent: response.in_progress\ndata: {\"response\": {\"background\": false, \"created_at\": 1793201530.0, \"error\": null, \"id\": \"resp_6ae2157a10ddc2693bc04190\", \"incomplete_details\": null, \"instructions\": null, \"metadata\": {\"include_confidence\": \"true\"}, \"model\": \"sam-3.1\", \"object\": \"response\", \"output\": [], \"parallel_tool_calls\": true, \"service_tier\": \"auto\", \"status\": \"in_progress\", \"store\": true, \"temperature\": 1.0, \"tool_choice\": \"auto\", \"tools\": [], \"top_logprobs\": 0, \"top_p\": 1.0, \"truncation\": \"disabled\"}, \"sequence_number\": 1, \"type\": \"response.in_progress\"}\n\nevent: response.output_item.added\ndata: {\"item\": {\"content\": [{\"annotations\": [], \"logprobs\": [], \"text\": \"\", \"type\": \"output_text\"}], \"id\": \"msg_8dcc3b01-7079-4a9d-8444-1578d3c72bf3\", \"role\": \"assistant\", \"status\": \"in_progress\", \"type\": \"message\"}, \"output_index\": 0, \"sequence_number\": 2, \"type\": \"response.output_item.added\"}\n\nevent: response.content_part.added\ndata: {\"content_index\": 0, \"item_id\": \"msg_8dcc3b01-7079-4a9d-8444-1578d3c72bf3\", \"output_index\": 0, \"part\": {\"annotations\": [], \"logprobs\": [], \"text\": \"\", \"type\": \"output_text\"}, \"sequence_number\": 3, \"type\": \"response.content_part.added\"}\n\nevent: response.output_text.done\ndata: {\"content_index\": 0, \"item_id\": \"msg_8dcc3b01-7079-4a9d-8444-1578d3c72bf3\", \"logprobs\": [], \"output_index\": 0, \"sequence_number\": 4, \"text\": \"\", \"type\": \"response.output_text.done\"}\n\nevent: response.content_part.done\ndata: {\"content_index\": 0, \"item_id\": \"msg_8dcc3b01-7079-4a9d-8444-1578d3c72bf3\", \"output_index\": 0, \"part\": {\"annotations\": [], \"logprobs\": [], \"text\": \"\", \"type\": \"output_text\"}, \"sequence_number\": 5, \"type\": \"response.content_part.done\"}\n\nevent: response.output_item.done\ndata: {\"item\": {\"content\": [{\"annotations\": [], \"logprobs\": [], \"text\": \"\", \"type\": \"output_text\"}], \"id\": \"msg_8dcc3b01-7079-4a9d-8444-1578d3c72bf3\", \"role\": \"assistant\", \"status\": \"completed\", \"type\": \"message\"}, \"output_index\": 0, \"sequence_number\": 6, \"type\": \"response.output_item.done\"}\n\nevent: response.completed\ndata: {\"response\": {\"background\": false, \"completed_at\": 1793201530.0, \"created_at\": 1793201530.0, \"error\": null, \"id\": \"resp_6ae2157a10ddc2693bc04190\", \"incomplete_details\": null, \"instructions\": null, \"metadata\": {\"include_confidence\": \"true\"}, \"model\": \"sam-3.1\", \"object\": \"response\", \"output\": [{\"content\": [{\"annotations\": [], \"logprobs\": [], \"text\": \"\", \"type\": \"output_text\"}], \"id\": \"msg_8dcc3b01-7079-4a9d-8444-1578d3c72bf3\", \"role\": \"assistant\", \"status\": \"completed\", \"type\": \"message\"}], \"parallel_tool_calls\": true, \"service_tier\": \"auto\", \"status\": \"completed\", \"store\": true, \"temperature\": 1.0, \"tool_choice\": \"auto\", \"tools\": [], \"top_logprobs\": 0, \"top_p\": 1.0, \"truncation\": \"disabled\", \"usage\": {\"images_processed\": 1, \"input_tokens\": 0, \"input_tokens_details\": {\"cached_tokens\": 0}, \"output_tokens\": 0, \"output_tokens_details\": {\"reasoning_tokens\": 0}, \"total_tokens\": 0}}, \"sequence_number\": 7, \"type\": \"response.completed\"}\n\ndata: [DONE]",
+ "response_json": null,
+ "witness_at_record_time": {
+  "status": "OK",
+  "model": "sam-3.1",
+  "provider": "meta-api",
+  "source_sha256": "fa36659886549eced47c13530ec935d0a19c6b66d7cac5d0a9e17a32ca20c078",
+  "detail": "",
+  "concept": "pallet",
+  "count": 0,
+  "boxes": [],
+  "image_w": null,
+  "image_h": null
+ }
+}
