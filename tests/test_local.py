@@ -14,10 +14,22 @@ from tinytms.receipt import find_machine_paths
 REPO = Path(__file__).resolve().parent.parent
 
 
-def test_redact_machine_paths():
-    assert redact_machine_paths("boom /Users/x/y z") == "boom <machine-path> z"
-    assert redact_machine_paths("/private/var/folders/ab/empty-hf and /home/u/.cache") == "<machine-path> and <machine-path>"
+def test_redact_machine_paths_covers_spaces_and_all_prefixes():
+    # macOS paths carry spaces ("Mobile Documents"): the redaction runs to the end of the line or to a
+    # closing quote/paren, never stopping at the first space.
+    assert redact_machine_paths("boom /Users/Some One/Library/Mobile Documents/x.jpg") == "boom <machine-path>"
+    assert redact_machine_paths("cannot open '/Users/Some One/a b.jpg' (errno 2)") == "cannot open '<machine-path>' (errno 2)"
+    assert redact_machine_paths("a /private/var/folders/ab/x\nb /var/folders/cd/y\nc /tmp/z\nd /root/w\ne /home/u/.cache\nf /Volumes/USB/x") == (
+        "a <machine-path>\nb <machine-path>\nc <machine-path>\nd <machine-path>\ne <machine-path>\nf <machine-path>")
     assert redact_machine_paths("clean text evals/public/x.jpg") == "clean text evals/public/x.jpg"
+
+
+def test_redactor_and_finder_share_one_definition():
+    from tinytms import receipt as receipt_module
+
+    assert redact_machine_paths is receipt_module.redact_machine_paths
+    for prefix in receipt_module.MACHINE_PATH_PREFIXES:
+        assert find_machine_paths(f"x {prefix}y") and redact_machine_paths(f"x {prefix}y") == "x <machine-path>"
 
 
 def test_not_cached_message_names_the_variable_not_the_path(tmp_path, monkeypatch):

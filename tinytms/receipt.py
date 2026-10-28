@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,17 @@ PRIVATE_KEY_FILE = "ed25519.key"
 PUBLIC_KEY_FILE = "ed25519.pub"
 
 # A receipt describes a run, never the machine it ran on: no user home, temp or volume paths.
-MACHINE_PATH_PREFIXES = ("/Users/", "/private/", "/home/", "/Volumes/")
+# One definition for the finder (tests, guards) and the redactor (errors, receipts).
+MACHINE_PATH_PREFIXES = ("/Users/", "/private/", "/home/", "/Volumes/", "/var/folders/", "/tmp/", "/root/")
+REDACTED = "<machine-path>"
+# From a prefix to the end of the line or to a closing quote/paren: paths carry spaces on macOS
+# ("Mobile Documents"), so stopping at the first space would leak the rest.
+_MACHINE_PATH_RE = re.compile("(?:" + "|".join(re.escape(p) for p in MACHINE_PATH_PREFIXES) + r")[^\"'\n)]*")
+
+
+def redact_machine_paths(text: str) -> str:
+    """Replace every machine path in free text with REDACTED; clean text comes back unchanged."""
+    return _MACHINE_PATH_RE.sub(REDACTED, text)
 
 
 def find_machine_paths(obj: Any) -> list[str]:
@@ -39,6 +50,26 @@ def find_machine_paths(obj: Any) -> list[str]:
         for v in obj:
             found += find_machine_paths(v)
     return found
+
+
+def redact_body(obj: Any) -> tuple[Any, int]:
+    """Copy of obj with every machine path redacted (keys included) and how many strings changed."""
+    if isinstance(obj, str):
+        new = redact_machine_paths(obj)
+        return new, int(new != obj)
+    if isinstance(obj, dict):
+        out: dict[Any, Any] = {}
+        n = 0
+        for k, v in obj.items():
+            k2, nk = redact_body(k)
+            v2, nv = redact_body(v)
+            out[k2] = v2
+            n += nk + nv
+        return out, n
+    if isinstance(obj, (list, tuple)):
+        items = [redact_body(v) for v in obj]
+        return [v for v, _ in items], sum(c for _, c in items)
+    return obj, 0
 
 
 def canonical_json(obj: Any) -> bytes:
@@ -74,11 +105,11 @@ def sign_receipt(body: dict[str, Any], sk: SigningKey) -> dict[str, Any]:
     """Return body + version/tinytms/public_key + signature (hex)."""
     if "signature" in body:
         raise ValueError("body already has a signature")
-    leaked = find_machine_paths(body)
-    if leaked:
-        shown = ", ".join(repr(s[:80]) for s in leaked[:3])
-        raise ValueError(f"receipt body carries machine paths ({len(leaked)}): {shown}")
-    unsigned = dict(body)
+    # Machine paths never enter a receipt, and a path in free text (a model's words, a document's
+    # remarks) must not block the receipt either: redact, count, sign. The count makes the edit visible.
+    unsigned, redacted = redact_body(dict(body))
+    if redacted:
+        unsigned["redacted_machine_paths"] = redacted
     unsigned.setdefault("version", RECEIPT_VERSION)
     unsigned.setdefault("tinytms", __version__)
     unsigned["public_key"] = public_key_hex(sk)

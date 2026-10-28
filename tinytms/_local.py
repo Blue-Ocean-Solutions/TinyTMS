@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import queue
-import re
 import subprocess
 import sys
 import threading
@@ -13,15 +12,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .receipt import redact_machine_paths  # one definition, shared with the receipt signer
+
 PYTHON_ENV = "TINYTMS_LOCAL_PYTHON"
 WORKER = Path(__file__).with_name("_mlx_worker.py")
-
-_MACHINE_PATH_RE = re.compile(r"/(?:Users|private|home|Volumes)/\S*")
-
-
-def redact_machine_paths(text: str) -> str:
-    """Replace user/temp/volume paths in free text: an error names its class, never this machine."""
-    return _MACHINE_PATH_RE.sub("<machine-path>", text)
 
 
 class LocalModelError(RuntimeError):

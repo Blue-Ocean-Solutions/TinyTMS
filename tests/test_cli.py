@@ -98,6 +98,27 @@ def test_unlabelled_fixture_is_refused(tmp_path):
     assert p.returncode == 2 and "ERROR:vision" in p.stdout
 
 
+def test_fixture_detail_with_machine_path_still_gets_a_receipt(tmp_path):
+    # A witness detail carrying a machine path (a dead camera's log path, a remark on a document)
+    # must not turn into exit 3 with no receipt: the receipt is written with the path redacted.
+    import shutil
+
+    fdir = tmp_path / "fx"
+    shutil.copytree(FIX / "accept", fdir)
+    vision = json.loads((fdir / "vision.FIXTURE.json").read_text())
+    vision.update({"status": "ERROR", "detail": "camera driver crashed; see /Users/someone/cam.log"})
+    (fdir / "vision.FIXTURE.json").write_text(json.dumps(vision))
+    p = run(tmp_path, "--mode", "fixture", "--fixture-dir", str(fdir), "--load", str(fdir / "load.FIXTURE.png"),
+            "--doc", str(fdir / "doc.FIXTURE.png"), "--voice", str(fdir / "voice.FIXTURE.wav"))
+    assert p.returncode == 2, p.stdout + p.stderr
+    _, r = only_receipt(tmp_path)
+    assert r["verdict"]["reasons"] == ["ERROR:vision"]
+    assert find_machine_paths(r) == []
+    assert "<machine-path>" in r["witnesses"]["vision"]["detail"]
+    assert r["redacted_machine_paths"] == 1
+    assert verify_receipt(r)
+
+
 def test_local_mode_without_cached_model_holds(tmp_path):
     # Empty HF cache -> NO_MODEL; never downloads, never loads a 30B model in tests.
     a = FIX / "accept"
