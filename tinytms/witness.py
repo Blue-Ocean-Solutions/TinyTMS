@@ -28,7 +28,11 @@ class _Witness:
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         # tuples -> lists so the dict is JSON-canonical
-        return {k: (list(v) if isinstance(v, tuple) else v) for k, v in d.items()}
+        return {k: (_lists(v) if isinstance(v, tuple) else v) for k, v in d.items()}
+
+
+def _lists(v: Any) -> Any:
+    return [_lists(x) for x in v] if isinstance(v, (tuple, list)) else v
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -37,7 +41,10 @@ class VisionWitness(_Witness):
 
     concept: str = "pallet"
     count: int | None = None
-    boxes: tuple[tuple[float, float, float, float], ...] = field(default_factory=tuple)
+    # (x1, y1, x2, y2) or, from SAM 3.1, (x1, y1, x2, y2, confidence); pixels of the image that was sent
+    boxes: tuple[tuple[float, ...], ...] = field(default_factory=tuple)
+    image_w: int | None = None
+    image_h: int | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -60,6 +67,7 @@ class VoiceWitness(_Witness):
     language: str | None = None
     count: int | None = None
     seal: str | None = None
+    audio_duration_ms: int | None = None
 
 
 Witness = VisionWitness | DocWitness | VoiceWitness

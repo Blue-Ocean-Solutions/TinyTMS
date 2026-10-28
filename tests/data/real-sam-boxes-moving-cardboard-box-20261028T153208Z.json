@@ -1,0 +1,95 @@
+{
+ "provenance": "REAL meta-api 2026-10-28T15:32:08.596778Z",
+ "witness": "sam",
+ "model": "sam-3.1",
+ "utc": "2026-10-28T15:32:08.596778Z",
+ "http": 200,
+ "s": 1.113,
+ "input": {
+  "name": "boxes-moving.jpg",
+  "sha256": "fa36659886549eced47c13530ec935d0a19c6b66d7cac5d0a9e17a32ca20c078"
+ },
+ "concept": "cardboard box",
+ "request": {
+  "model": "sam-3.1",
+  "stream": true,
+  "metadata": {
+   "include_confidence": "true"
+  },
+  "input": [
+   {
+    "type": "message",
+    "role": "user",
+    "content": [
+     {
+      "type": "input_text",
+      "text": "cardboard box"
+     },
+     {
+      "type": "input_image",
+      "image_url": "<data:image/jpeg;base64 250279 chars sha256=b79e7e9c4a7822f5…>"
+     }
+    ]
+   }
+  ]
+ },
+ "media": {
+  "original_sha256": "fa36659886549eced47c13530ec935d0a19c6b66d7cac5d0a9e17a32ca20c078",
+  "original_wh": [
+   1280,
+   960
+  ],
+  "mime": "image/jpeg",
+  "sent_sha256": "fa36659886549eced47c13530ec935d0a19c6b66d7cac5d0a9e17a32ca20c078",
+  "sent_wh": [
+   1280,
+   960
+  ],
+  "sent_bytes": 187690,
+  "resized": false
+ },
+ "receipt": "live-sam-boxes-moving-cardboard-box-20261028T153208Z.json",
+ "response_sse": "event: response.created\ndata: {\"response\": {\"background\": false, \"created_at\": 1793201529.0, \"error\": null, \"id\": \"resp_6ae21579da8e2349905a43bf\", \"incomplete_details\": null, \"instructions\": null, \"metadata\": {\"include_confidence\": \"true\"}, \"model\": \"sam-3.1\", \"object\": \"response\", \"output\": [], \"parallel_tool_calls\": true, \"service_tier\": \"auto\", \"status\": \"in_progress\", \"store\": true, \"temperature\": 1.0, \"tool_choice\": \"auto\", \"tools\": [], \"top_logprobs\": 0, \"top_p\": 1.0, \"truncation\": \"disabled\"}, \"sequence_number\": 0, \"type\": \"response.created\"}\n\nevent: response.in_progress\ndata: {\"response\": {\"background\": false, \"created_at\": 1793201529.0, \"error\": null, \"id\": \"resp_6ae21579da8e2349905a43bf\", \"incomplete_details\": null, \"instructions\": null, \"metadata\": {\"include_confidence\": \"true\"}, \"model\": \"sam-3.1\", \"object\": \"response\", \"output\": [], \"parallel_tool_calls\": true, \"service_tier\": \"auto\", \"status\": \"in_progress\", \"store\": true, \"temperature\": 1.0, \"tool_choice\": \"auto\", \"tools\": [], \"top_logprobs\": 0, \"top_p\": 1.0, \"truncation\": \"disabled\"}, \"sequence_number\": 1, \"type\": \"response.in_progress\"}\n\nevent: response.output_item.added\ndata: {\"item\": {\"content\": [{\"annotations\": [], \"logprobs\": [], \"text\": \"\", \"type\": \"output_text\"}], \"id\": \"msg_d60bc0a2-8fc2-4469-8b3f-3ae10bc915da\", \"role\": \"assistant\", \"status\": \"in_progress\", \"type\": \"message\"}, \"output_index\": 0, \"sequence_number\": 2, \"type\": \"response.output_item.added\"}\n\nevent: response.content_part.added\ndata: {\"content_index\": 0, \"item_id\": \"msg_d60bc0a2-8fc2-4469-8b3f-3ae10bc915da\", \"output_index\": 0, \"part\": {\"annotations\": [], \"logprobs\": [], \"text\": \"\", \"type\": \"output_text\"}, \"sequence_number\": 3, \"type\": \"response.content_part.added\"}\n\nevent: response.output_text.delta\ndata: {\"content_index\": 0, \"delta\": \"<delta omitted 28797 chars>\", \"item_id\": \"msg_d60bc0a2-8fc2-4469-8b3f-3ae10bc915da\", \"logprobs\": [], \"output_index\": 0, \"sequence_number\": 4, \"type\": \"response.output_text.delta\"}\n\nevent: response.output_text.done\ndata: {\"content_index\": 0, \"item_id\": \"msg_d60bc0a2-8fc2-4469-8b3f-3ae10bc915da\", \"logprobs\": [], \"output_index\": 0, \"sequence_number\": 5, \"text\": \"<0f>0<|box;x1=780;y1=606;x2=983;y2=838;w=1280;h=960;c=0.9375000596046448|><|mask;x=0;y=0;c=0.9375000596046448;data=<omitted 10698 chars>|>,1<|box;x1=405;y1=606;x2=617;y2=788;w=1280;h=960;c=0.9101123809814453|><|mask;x=0;y=0;c=0.9101123809814453;data=<omitted 6301 chars>|>,2<|box;x1=376;y1=686;x2=517;y2=801;w=1280;h=960;c=0.8947368264198303|><|mask;x=0;y=0;c=0.8947368264198303;data=<omitted 2911 chars>|>,3<|box;x1=606;y1=482;x2=753;y2=782;w=1280;h=960;c=0.8632478713989258|><|mask;x=0;y=0;c=0.8632478713989258;data=<omitted 8427 chars>|>\\n\", \"type\": \"response.output_text.done\"}\n\nevent: response.content_part.done\ndata: {\"content_index\": 0, \"item_id\": \"msg_d60bc0a2-8fc2-4469-8b3f-3ae10bc915da\", \"output_index\": 0, \"part\": {\"annotations\": [], \"logprobs\": [], \"text\": \"<0f>0<|box;x1=780;y1=606;x2=983;y2=838;w=1280;h=960;c=0.9375000596046448|><|mask;x=0;y=0;c=0.9375000596046448;data=<omitted 10698 chars>|>,1<|box;x1=405;y1=606;x2=617;y2=788;w=1280;h=960;c=0.9101123809814453|><|mask;x=0;y=0;c=0.9101123809814453;data=<omitted 6301 chars>|>,2<|box;x1=376;y1=686;x2=517;y2=801;w=1280;h=960;c=0.8947368264198303|><|mask;x=0;y=0;c=0.8947368264198303;data=<omitted 2911 chars>|>,3<|box;x1=606;y1=482;x2=753;y2=782;w=1280;h=960;c=0.8632478713989258|><|mask;x=0;y=0;c=0.8632478713989258;data=<omitted 8427 chars>|>\\n\", \"type\": \"output_text\"}, \"sequence_number\": 6, \"type\": \"response.content_part.done\"}\n\nevent: response.output_item.done\ndata: {\"item\": {\"content\": [{\"annotations\": [], \"logprobs\": [], \"text\": \"<0f>0<|box;x1=780;y1=606;x2=983;y2=838;w=1280;h=960;c=0.9375000596046448|><|mask;x=0;y=0;c=0.9375000596046448;data=<omitted 10698 chars>|>,1<|box;x1=405;y1=606;x2=617;y2=788;w=1280;h=960;c=0.9101123809814453|><|mask;x=0;y=0;c=0.9101123809814453;data=<omitted 6301 chars>|>,2<|box;x1=376;y1=686;x2=517;y2=801;w=1280;h=960;c=0.8947368264198303|><|mask;x=0;y=0;c=0.8947368264198303;data=<omitted 2911 chars>|>,3<|box;x1=606;y1=482;x2=753;y2=782;w=1280;h=960;c=0.8632478713989258|><|mask;x=0;y=0;c=0.8632478713989258;data=<omitted 8427 chars>|>\\n\", \"type\": \"output_text\"}], \"id\": \"msg_d60bc0a2-8fc2-4469-8b3f-3ae10bc915da\", \"role\": \"assistant\", \"status\": \"completed\", \"type\": \"message\"}, \"output_index\": 0, \"sequence_number\": 7, \"type\": \"response.output_item.done\"}\n\nevent: response.completed\ndata: {\"response\": {\"background\": false, \"completed_at\": 1793201529.0, \"created_at\": 1793201529.0, \"error\": null, \"id\": \"resp_6ae21579da8e2349905a43bf\", \"incomplete_details\": null, \"instructions\": null, \"metadata\": {\"include_confidence\": \"true\"}, \"model\": \"sam-3.1\", \"object\": \"response\", \"output\": [{\"content\": [{\"annotations\": [], \"logprobs\": [], \"text\": \"<0f>0<|box;x1=780;y1=606;x2=983;y2=838;w=1280;h=960;c=0.9375000596046448|><|mask;x=0;y=0;c=0.9375000596046448;data=<omitted 10698 chars>|>,1<|box;x1=405;y1=606;x2=617;y2=788;w=1280;h=960;c=0.9101123809814453|><|mask;x=0;y=0;c=0.9101123809814453;data=<omitted 6301 chars>|>,2<|box;x1=376;y1=686;x2=517;y2=801;w=1280;h=960;c=0.8947368264198303|><|mask;x=0;y=0;c=0.8947368264198303;data=<omitted 2911 chars>|>,3<|box;x1=606;y1=482;x2=753;y2=782;w=1280;h=960;c=0.8632478713989258|><|mask;x=0;y=0;c=0.8632478713989258;data=<omitted 8427 chars>|>\\n\", \"type\": \"output_text\"}], \"id\": \"msg_d60bc0a2-8fc2-4469-8b3f-3ae10bc915da\", \"role\": \"assistant\", \"status\": \"completed\", \"type\": \"message\"}], \"parallel_tool_calls\": true, \"service_tier\": \"auto\", \"status\": \"completed\", \"store\": true, \"temperature\": 1.0, \"tool_choice\": \"auto\", \"tools\": [], \"top_logprobs\": 0, \"top_p\": 1.0, \"truncation\": \"disabled\", \"usage\": {\"images_processed\": 1, \"input_tokens\": 0, \"input_tokens_details\": {\"cached_tokens\": 0}, \"output_tokens\": 0, \"output_tokens_details\": {\"reasoning_tokens\": 0}, \"total_tokens\": 0}}, \"sequence_number\": 8, \"type\": \"response.completed\"}\n\ndata: [DONE]",
+ "response_json": null,
+ "witness_at_record_time": {
+  "status": "OK",
+  "model": "sam-3.1",
+  "provider": "meta-api",
+  "source_sha256": "fa36659886549eced47c13530ec935d0a19c6b66d7cac5d0a9e17a32ca20c078",
+  "detail": "",
+  "concept": "cardboard box",
+  "count": 4,
+  "boxes": [
+   [
+    780.0,
+    606.0,
+    983.0,
+    838.0,
+    0.9375000596046448
+   ],
+   [
+    405.0,
+    606.0,
+    617.0,
+    788.0,
+    0.9101123809814453
+   ],
+   [
+    376.0,
+    686.0,
+    517.0,
+    801.0,
+    0.8947368264198303
+   ],
+   [
+    606.0,
+    482.0,
+    753.0,
+    782.0,
+    0.8632478713989258
+   ]
+  ],
+  "image_w": 1280,
+  "image_h": 960
+ }
+}

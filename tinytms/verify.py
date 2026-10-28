@@ -81,10 +81,12 @@ def judge(
         count_reasons.append("VISION_NO_COUNT")
     if not _valid_count(voice.count):
         count_reasons.append("VOICE_NO_COUNT")
-    if not count_reasons and not (doc.pieces == vision.count == voice.count):
-        count_reasons.append(
-            f"COUNT_MISMATCH doc={doc.pieces} vision={vision.count} voice={voice.count}"
-        )
+    # Compare every count that IS available, pairwise: a missing witness never hides a
+    # disagreement between the other two (found live on 2026-10-28: doc=12 vs vision=1
+    # stayed silent because the voice count was None).
+    available = [(n, c) for n, c in (("doc", doc.pieces), ("vision", vision.count), ("voice", voice.count)) if _valid_count(c)]
+    if len(available) >= 2 and len({c for _, c in available}) > 1:
+        count_reasons.append("COUNT_MISMATCH " + " ".join(f"{n}={c}" for n, c in available))
     checks["count"] = "fail" if count_reasons else "pass"
     reasons += count_reasons
 

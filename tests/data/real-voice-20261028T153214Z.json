@@ -1,0 +1,62 @@
+{
+ "provenance": "REAL meta-api 2026-10-28T15:32:14.049991Z",
+ "witness": "voice",
+ "model": "muse-voice-transcribe-1.0",
+ "utc": "2026-10-28T15:32:14.049991Z",
+ "http": 200,
+ "s": 0.912,
+ "input": {
+  "name": "silencio_16k.wav",
+  "sha256": "643f8a8dc8bd9c19225afffad2becfec5426180b3749cb208abdf1a6c8354efc"
+ },
+ "concept": null,
+ "request": {
+  "multipart": {
+   "request": {
+    "model": "muse-voice-transcribe-1.0",
+    "audioEncoding": "WAV",
+    "mode": "PUSH_TO_TALK",
+    "languageBias": [
+     "Spanish",
+     "English"
+    ]
+   },
+   "audio": "<wav 32044 bytes sha256=643f8a8dc8bd9c19225afffad2becfec5426180b3749cb208abdf1a6c8354efc>"
+  }
+ },
+ "media": {
+  "original_sha256": "643f8a8dc8bd9c19225afffad2becfec5426180b3749cb208abdf1a6c8354efc",
+  "original": {
+   "channels": 1,
+   "sample_width": 2,
+   "rate": 16000,
+   "frames": 16000
+  },
+  "converted": false,
+  "sent_sha256": "643f8a8dc8bd9c19225afffad2becfec5426180b3749cb208abdf1a6c8354efc",
+  "sent": {
+   "channels": 1,
+   "rate": 16000
+  }
+ },
+ "receipt": "live-voice-20261028T153214Z.json",
+ "response_sse": null,
+ "response_json": {
+  "sessionId": "voyager/transcribe/1FD0A4366E4E4E4B9DC40EBD019BE4A7",
+  "transcript": "",
+  "audioDurationMs": 1040,
+  "turns": []
+ },
+ "witness_at_record_time": {
+  "status": "OK",
+  "model": "muse-voice-transcribe-1.0",
+  "provider": "meta-api",
+  "source_sha256": "643f8a8dc8bd9c19225afffad2becfec5426180b3749cb208abdf1a6c8354efc",
+  "detail": "empty transcript",
+  "transcript": "",
+  "language": null,
+  "count": null,
+  "seal": null,
+  "audio_duration_ms": 1040
+ }
+}

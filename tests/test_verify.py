@@ -122,3 +122,12 @@ def test_parse_count_none_or_ambiguous(text):
 ])
 def test_parse_seal(text, seal):
     assert parse_seal(text) == seal
+
+
+def test_count_mismatch_is_reported_even_when_one_count_is_missing():
+    # Found live on 2026-10-28: doc=12 vs vision=1 stayed silent because the voice count was None.
+    v = judge(replace(V, count=1), D, replace(A, count=None), L)
+    assert v.decision == "HOLD"
+    assert "VOICE_NO_COUNT" in v.reasons
+    assert "COUNT_MISMATCH doc=12 vision=1" in v.reasons
+    assert v.checks["count"] == "fail"

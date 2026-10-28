@@ -19,15 +19,18 @@ FIXTURE_PROVENANCE_PREFIX = "FIXTURE"
 
 
 def output_text(data: dict[str, Any]) -> str | None:
-    """Text from a Responses-style payload: output_text, or output[].content[].text."""
+    """Text from a Responses payload: output_text, or output[type=message].content[type=output_text].text.
+
+    Measured (Spark 1.3): output = [{type: reasoning}, {type: message, content: [{type: output_text, text}]}].
+    """
     if isinstance(data.get("output_text"), str):
         return data["output_text"]
     parts: list[str] = []
     for item in data.get("output") or []:
-        if not isinstance(item, dict):
+        if not isinstance(item, dict) or item.get("type", "message") != "message":
             continue
         for c in item.get("content") or []:
-            if isinstance(c, dict) and isinstance(c.get("text"), str):
+            if isinstance(c, dict) and c.get("type", "output_text") == "output_text" and isinstance(c.get("text"), str):
                 parts.append(c["text"])
     return "".join(parts) if parts else None
 
@@ -43,50 +46,125 @@ def _is_int(v: object) -> bool:
     return isinstance(v, int) and not isinstance(v, bool)
 
 
-# --- vision --------------------------------------------------------------------------------
-
-_DETECTION_KEYS = ("detections", "instances", "masks", "objects")
+# --- SAM 3.1 SSE ---------------------------------------------------------------------------
 
 
-def vision_from_sam(
-    data: dict[str, Any], *, model: str, provider: str, source_sha256: str, concept: str = "pallet"
-) -> VisionWitness:
-    meta = dict(model=model, provider=provider, source_sha256=source_sha256, concept=concept)
-    if _is_int(data.get("count")):
-        return VisionWitness(status="OK", count=data["count"], boxes=_boxes(data), **meta)
-    # Look for a detection list at top level or inside output items.
-    candidates: list[dict[str, Any]] = [data] + [
-        i for i in (data.get("output") or []) if isinstance(i, dict)
-    ]
-    for c in candidates:
-        for k in _DETECTION_KEYS:
-            if isinstance(c.get(k), list):
-                return VisionWitness(
-                    status="OK", count=len(c[k]), boxes=_boxes({"boxes": _det_boxes(c[k])}), **meta
-                )
-    return VisionWitness(
-        status="ERROR",
-        detail=f"unrecognized SAM response shape; top-level keys={sorted(data)[:12]}",
-        **meta,
-    )
+def parse_sse(sse_text: str) -> list[dict[str, Any]]:
+    """Events of a text/event-stream body: every 'data: {...}' line that is a JSON object."""
+    events = []
+    for line in sse_text.splitlines():
+        if not line.startswith("data:"):
+            continue
+        payload = line[5:].strip()
+        if not payload or payload == "[DONE]":
+            continue
+        try:
+            ev = json.loads(payload)
+        except ValueError:
+            continue
+        if isinstance(ev, dict):
+            events.append(ev)
+    return events
 
 
-def _det_boxes(dets: list[Any]) -> list[Any]:
+def sam_text(events: list[dict[str, Any]]) -> str | None:
+    """Full SAM text: response.output_text.done 'text', else the text inside response.completed."""
+    for ev in events:
+        if ev.get("type") == "response.output_text.done" and isinstance(ev.get("text"), str):
+            return ev["text"]
+    for ev in events:
+        if ev.get("type") == "response.completed" and isinstance(ev.get("response"), dict):
+            return output_text(ev["response"]) or ""
+    return None
+
+
+_MASK_DATA = re.compile(r"(<\|mask;[^|]*?)data=.*?(?=\|>)", flags=re.S)
+_BOX = re.compile(r"<\|box;([^|]*)\|>")
+
+
+def strip_masks(text: str) -> str:
+    """Drop the heavy 'data=' payload of every <|mask;...|> record (never goes to receipts or tests)."""
+    return _MASK_DATA.sub(lambda m: f"{m.group(1)}data=<omitted {len(m.group(0)) - len(m.group(1)) - 5} chars>", text)
+
+
+def strip_sse(sse_text: str) -> str:
+    """SSE body safe to store: mask data dropped from every string, text deltas replaced by their length."""
+
+    def walk(v: Any, key: str = "") -> Any:
+        if isinstance(v, dict):
+            return {k: walk(x, k) for k, x in v.items()}
+        if isinstance(v, list):
+            return [walk(x) for x in v]
+        if isinstance(v, str):
+            return f"<delta omitted {len(v)} chars>" if key == "delta" else strip_masks(v)
+        return v
+
     out = []
-    for d in dets:
-        if isinstance(d, dict):
-            b = d.get("box") or d.get("bbox")
-            if b is not None:
-                out.append(b)
+    for line in sse_text.splitlines():
+        if line.startswith("data:"):
+            try:
+                line = "data: " + json.dumps(walk(json.loads(line[5:].strip())), ensure_ascii=False)
+            except ValueError:
+                line = strip_masks(line)
+        out.append(line)
+    return "\n".join(out)
+
+
+def sam_boxes(text: str) -> list[dict[str, float]]:
+    """Every <|box;x1=..;y1=..;x2=..;y2=..;w=..;h=..;c=..|> record as a dict of floats."""
+    out = []
+    for m in _BOX.finditer(text):
+        kv: dict[str, float] = {}
+        for part in m.group(1).split(";"):
+            k, _, v = part.partition("=")
+            try:
+                kv[k.strip()] = float(v)
+            except ValueError:
+                continue
+        out.append(kv)
     return out
 
 
-def _boxes(data: dict[str, Any]) -> tuple[tuple[float, float, float, float], ...]:
-    out = []
-    for b in data.get("boxes") or []:
-        if isinstance(b, (list, tuple)) and len(b) == 4 and all(isinstance(x, (int, float)) for x in b):
-            out.append(tuple(float(x) for x in b))
-    return tuple(out)  # type: ignore[return-value]
+def vision_from_sam(
+    sse_text: str, *, model: str, provider: str, source_sha256: str, concept: str = "pallet"
+) -> VisionWitness:
+    """SAM 3.1 SSE body -> witness. count = number of <|box; records; zero records is count 0, status OK."""
+    meta = dict(model=model, provider=provider, source_sha256=source_sha256, concept=concept)
+    if not isinstance(sse_text, str):
+        return VisionWitness(status="ERROR", detail=f"SAM body must be SSE text, got {type(sse_text).__name__}",
+                             **meta)
+    events = parse_sse(sse_text)
+    for ev in events:
+        if ev.get("type") in ("error", "response.failed", "response.incomplete"):
+            err = ev.get("error") or (ev.get("response") or {}).get("error") or ev.get("type")
+            return VisionWitness(status="ERROR", detail=f"SAM stream {ev.get('type')}: {str(err)[:300]}", **meta)
+    text = sam_text(events)
+    if text is None:
+        kinds = sorted({str(e.get("type")) for e in events})
+        return VisionWitness(status="ERROR", detail=f"SAM stream has no output_text.done/completed; events={kinds}",
+                             **meta)
+    recs = sam_boxes(text)
+    boxes, need = [], ("x1", "y1", "x2", "y2")
+    for r in recs:
+        if all(k in r for k in need):
+            boxes.append(tuple(r[k] for k in need) + ((r["c"],) if "c" in r else ()))
+    w = int(recs[0]["w"]) if recs and "w" in recs[0] else None
+    h = int(recs[0]["h"]) if recs and "h" in recs[0] else None
+    return VisionWitness(status="OK", count=len(recs), boxes=tuple(boxes), image_w=w, image_h=h, **meta)
+
+
+def vision_from_fields(
+    data: dict[str, Any], *, model: str, provider: str, source_sha256: str, concept: str = "pallet"
+) -> VisionWitness:
+    """Hand-written witness fields ({"count": n, "boxes": [[x1,y1,x2,y2(,c)],...]}), used by FIXTURE files."""
+    meta = dict(model=model, provider=provider, source_sha256=source_sha256, concept=concept)
+    if not _is_int(data.get("count")):
+        return VisionWitness(status="ERROR", detail=f"no integer 'count'; keys={sorted(data)[:12]}", **meta)
+    boxes = tuple(
+        tuple(float(x) for x in b) for b in data.get("boxes") or []
+        if isinstance(b, (list, tuple)) and len(b) in (4, 5) and all(isinstance(x, (int, float)) for x in b)
+    )
+    return VisionWitness(status="OK", count=data["count"], boxes=boxes, **meta)
 
 
 # --- document ------------------------------------------------------------------------------
@@ -124,6 +202,9 @@ def doc_from_spark(
     data: dict[str, Any], *, model: str, provider: str, source_sha256: str
 ) -> DocWitness:
     meta = dict(model=model, provider=provider, source_sha256=source_sha256)
+    if data.get("status") == "incomplete":
+        why = (data.get("incomplete_details") or {}).get("reason", "?")
+        return DocWitness(status="ERROR", detail=f"response incomplete ({why}); usage={data.get('usage')}", **meta)
     text = output_text(data)
     if text is None:
         return DocWitness(status="ERROR", detail=f"no output text; keys={sorted(data)[:12]}", **meta)
@@ -224,17 +305,19 @@ def voice_from_transcript(
     data: dict[str, Any], *, model: str, provider: str, source_sha256: str
 ) -> VoiceWitness:
     meta = dict(model=model, provider=provider, source_sha256=source_sha256)
-    text = data.get("transcript") if isinstance(data.get("transcript"), str) else None
-    if text is None and isinstance(data.get("text"), str):
-        text = data["text"]
-    if text is None:
-        text = output_text(data)
-    if text is None:
-        return VoiceWitness(status="ERROR", detail=f"no transcript; keys={sorted(data)[:12]}", **meta)
+    """Measured ASR shape: {sessionId, transcript, audioDurationMs, turns[]}. Empty transcript -> OK, count None."""
+    if not isinstance(data, dict) or not isinstance(data.get("transcript"), str):
+        keys = sorted(data)[:12] if isinstance(data, dict) else type(data).__name__
+        return VoiceWitness(status="ERROR", detail=f"no 'transcript' string; keys={keys}", **meta)
+    text = data["transcript"]
     count, why = parse_count(text)
+    if not text.strip():
+        why = "empty transcript"
     lang = data.get("language") if isinstance(data.get("language"), str) else None
+    dur = data.get("audioDurationMs") if _is_int(data.get("audioDurationMs")) else None
     return VoiceWitness(
-        status="OK", transcript=text, language=lang, count=count, seal=parse_seal(text), detail=why, **meta
+        status="OK", transcript=text, language=lang, count=count, seal=parse_seal(text), detail=why,
+        audio_duration_ms=dur, **meta
     )
 
 
@@ -258,7 +341,7 @@ def from_fixture(path: str | Path, source_sha256: str = "") -> Witness:
         return cls(status=data["status"], detail=data.get("detail", ""), **meta)
     note = f"fixture {p.name} sha256={fx_sha}"
     if kind == "vision":
-        w = vision_from_sam(data, concept=data.get("concept", "pallet"), **meta)
+        w = vision_from_fields(data, concept=data.get("concept", "pallet"), **meta)
     elif kind == "doc":
         w = doc_from_fields(data, **meta)
     else:
@@ -270,3 +353,33 @@ def _fields(w: Witness) -> dict[str, Any]:
     from dataclasses import fields
 
     return {f.name: getattr(w, f.name) for f in fields(w)}
+
+
+# --- call records (what goes into a receipt about one API call) -----------------------------
+
+RAW_LIMIT = 2000
+
+
+def call_record(r: Any, raw_limit: int = RAW_LIMIT) -> dict[str, Any]:
+    """Receipt view of one meta_api.ApiResult: request without base64, raw answer truncated, masks dropped."""
+    rec: dict[str, Any] = {
+        "model": r.model, "provider": r.provider, "status": r.status, "http": r.http_status,
+        "utc": r.utc, "s": r.seconds, "request": r.request, "media": r.media,
+    }
+    if r.detail:
+        rec["detail"] = r.detail[:raw_limit]
+    if r.raw_text is not None and r.data is None and r.status == "OK":  # SAM SSE
+        events = parse_sse(r.raw_text)
+        text = sam_text(events)
+        rec["sse_events"] = [str(e.get("type")) for e in events]
+        rec["raw_chars"] = len(r.raw_text)
+        rec["raw"] = strip_masks(text)[:raw_limit] if text is not None else None
+        for ev in events:
+            resp = ev.get("response") if ev.get("type") == "response.completed" else None
+            if isinstance(resp, dict) and resp.get("usage") is not None:
+                rec["usage"] = resp["usage"]
+    elif r.data is not None:
+        rec["raw"] = json.dumps(r.data, ensure_ascii=False)[:raw_limit]
+        if r.data.get("usage") is not None:
+            rec["usage"] = r.data["usage"]
+    return rec
