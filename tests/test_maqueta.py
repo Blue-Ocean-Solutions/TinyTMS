@@ -74,6 +74,22 @@ def test_dry_run_accept(tmp_path):
     assert "python scripts/maqueta.py" in acta and "--dry-run accept" in acta
 
 
+def test_dry_run_never_writes_the_repo_receipts(tmp_path):
+    # house rule (PR #1): FIXTURE receipts stay out of the public tree; receipts/ holds only real runs
+    before = set((REPO / "receipts").iterdir())
+    out = tmp_path / "out"
+    assert maqueta.main(["--dry-run", "accept", "--out", str(out), "--keys-dir", str(tmp_path / "keys")]) == 0
+    assert set((REPO / "receipts").iterdir()) == before
+    [rec] = (out / "receipts").glob("*.json")
+    assert rec.name.endswith("-ACCEPT-FIXTURE.json") and verify_receipt(json.loads(rec.read_text()))
+    acta = (out / "ACTA.md").read_text(encoding="utf-8")
+    assert f"receipts/{rec.name}" in acta and find_machine_paths(acta) == []
+
+
+def test_maqueta_records_are_git_ignored():
+    assert "maqueta/" in (REPO / ".gitignore").read_text().splitlines()
+
+
 def test_dry_run_hold_lists_reasons(tmp_path):
     code, out = run(tmp_path, "--dry-run", "count_mismatch")
     assert code == 2

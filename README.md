@@ -73,12 +73,14 @@ the verdict is already fixed and does not change.
 
 Boxes in front of the camera, a printed Carta de Porte, a voice note: `scripts/maqueta.py` takes the three
 inputs, runs the same check-in (`tinytms/pipeline.py`, receipt in `receipts/`) and leaves a human-readable
-`ACTA.md` next to copies of the inputs in `maqueta/<utc>/`: each input's name and sha256, the mode, the three
+`ACTA.md` next to copies of the inputs in `maqueta/<utc>/` (git-ignored: real photos and audio are committed
+only on purpose): each input's name and sha256, the mode, the three
 witnesses, the verdict and its reasons, the explanation if any, the receipt's file name and sha256, and the
 command line (repo-relative). Exit codes are the CLI's: `0` ACCEPT, `2` HOLD, `3` operational error.
 
 ```bash
-# dry run (CI, rehearsal): fixtures/<case>, never a camera, a model or MODEL_API_KEY
+# dry run (CI, rehearsal): fixtures/<case>, never a camera, a model or MODEL_API_KEY;
+# its FIXTURE receipt goes to <out>/receipts/, never to the repo's receipts/
 python scripts/maqueta.py --dry-run accept            # ACCEPT, exit 0
 python scripts/maqueta.py --dry-run count_mismatch    # HOLD, exit 2
 

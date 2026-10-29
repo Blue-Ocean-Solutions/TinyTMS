@@ -7,7 +7,7 @@
 
 `camera:N` grabs one frame with tinytms.capture.capture_frame; files are copied. Either way the input lands in
 --out (default maqueta/<utc>/) with its sha256, so the record is self-contained. The check-in is
-tinytms.pipeline.run_checkin (receipt in the repo's receipts/); <out>/ACTA.md is the human-readable record next to
+tinytms.pipeline.run_checkin (receipt in the repo's receipts/; a dry run's in <out>/receipts/); <out>/ACTA.md is the human-readable record next to
 it. Exit code is the CLI's: 0 ACCEPT, 2 HOLD, 3 operational error (a failed capture is said in ACTA.md, and no
 placeholder image is ever used).
 """
@@ -80,11 +80,14 @@ def shown(token: str, cwd: Path) -> str:
     return token
 
 
-def repo_relative(p: Path) -> str:
-    try:
-        return p.resolve().relative_to(REPO).as_posix()
-    except ValueError:
-        return p.name
+def relative(p: Path, *bases: Path) -> str:
+    """p relative to the first base that holds it (the record's folder, then the repo), else its bare name."""
+    for base in bases:
+        try:
+            return p.resolve().relative_to(base.resolve()).as_posix()
+        except ValueError:
+            continue
+    return p.name
 
 
 def command_line(argv: list[str]) -> str:
@@ -126,7 +129,7 @@ def _value(v: Any) -> str:
     return "—" if v is None or v == "" else f"`{v}`" if not isinstance(v, str) else v
 
 
-def acta(t: dict[str, str], *, mode: str, inputs: dict[str, dict[str, Any]], command: str,
+def acta(t: dict[str, str], out: Path, *, mode: str, inputs: dict[str, dict[str, Any]], command: str,
          res: CheckinResult | None = None, error: str | None = None, dry_run: str | None = None) -> str:
     lines = [f"# {t['title']} · {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}", ""]
     if res is not None:
@@ -160,7 +163,7 @@ def acta(t: dict[str, str], *, mode: str, inputs: dict[str, dict[str, Any]], com
                       f"- status: **{e.get('status')}** · model: {_value(e.get('model'))} · "
                       f"provider: `{e.get('provider')}`", ""]
             lines += [f"> {x}" for x in str(e.get("text") or e.get("detail") or "").splitlines()]
-        lines += ["", f"## {t['receipt']}", "", f"- `{repo_relative(res.path)}`",
+        lines += ["", f"## {t['receipt']}", "", f"- `{relative(res.path, out, REPO)}`",
                   f"- sha256: `{sha256_file(res.path)}`"]
     lines += ["", f"## {t['command']}", "", "```", command, "```", ""]
     # witness details and model words are free text: the record describes the scene, never this machine
@@ -179,7 +182,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dry-run", nargs="?", const="accept", metavar="CASE",
                    help="fixtures/CASE (default accept): no camera, no model, no key")
     p.add_argument("--concept", default="pallet", help="SAM concept prompt")
-    p.add_argument("--receipts-dir", default=str(REPO / "receipts"))
+    p.add_argument("--receipts-dir",
+                   help="default: the repo's receipts/ for a real run, <out>/receipts/ for a dry run")
     p.add_argument("--keys-dir", default=os.environ.get("TINYTMS_KEYS_DIR", str(REPO / "keys")))
     return p
 
@@ -208,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
     fdir: Path | None = None
 
     def fail(msg: str) -> int:
-        record.write_text(acta(t, mode=mode, inputs=inputs, command=command, error=msg, dry_run=args.dry_run),
+        record.write_text(acta(t, out, mode=mode, inputs=inputs, command=command, error=msg, dry_run=args.dry_run),
                           encoding="utf-8")
         print(f"ERROR: {redact_machine_paths(msg)}\n  record: {record}", file=sys.stderr)
         return EXIT_ERROR
@@ -231,16 +235,18 @@ def main(argv: list[str] | None = None) -> int:
     except (Refused, InputError, capture.CaptureError, OSError) as e:
         return fail(f"{type(e).__name__}: {e}")
 
+    # FIXTURE receipts never land in the public tree: receipts/ holds real runs only
+    receipts_dir = args.receipts_dir or (out / "receipts" if fdir is not None else REPO / "receipts")
     try:
         res = run_checkin(
             mode, load=inputs["load"]["path"], doc=inputs["doc"]["path"], voice=inputs["voice"]["path"],
-            fixture_dir=fdir, concept=args.concept, receipts_dir=args.receipts_dir, keys_dir=args.keys_dir,
+            fixture_dir=fdir, concept=args.concept, receipts_dir=receipts_dir, keys_dir=args.keys_dir,
             explain=args.explain, lang=args.lang, origin="maqueta",
         )
     except Exception as e:  # noqa: BLE001 - operational failure, not a verdict
         return fail(f"{type(e).__name__}: {e}")
 
-    record.write_text(acta(t, mode=mode, inputs=inputs, command=command, res=res, dry_run=args.dry_run),
+    record.write_text(acta(t, out, mode=mode, inputs=inputs, command=command, res=res, dry_run=args.dry_run),
                       encoding="utf-8")
     print("\n".join(report(res)))
     print(f"  record: {record}")
