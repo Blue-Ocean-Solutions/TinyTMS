@@ -47,7 +47,8 @@ decide, explains a HOLD to the driver in their language, and signs the whole thi
 
 ## What was built during the event
 
-Every commit on `main` up to `7166006` is dated 2026-10-28 (`git log --format=%ad main`), inside the building period.
+Every commit on `main` up to `7166006` is dated 2026-10-28 and those of #7 and #8 are dated 2026-10-29
+(`git log --format=%ad main`), inside the building period.
 By pull request, from `git log --merges`:
 
 | PR | What it added |
@@ -59,7 +60,8 @@ By pull request, from `git log --merges`:
 | [#4](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/4) | Day 3: explanation for the driver, the one-page web, local and auto modes, the real Spanish voice eval. |
 | [#5](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/5) | Web fences: Host allowlist, same-origin POST, `--allow-api` gate, negative Content-Length refused. |
 | [#6](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/6) | Local mode: a Glimmer generation cut in its analysis channel is an ERROR, never a parsed answer; real local check-in receipt (`receipts/20261028T165434299357Z-HOLD.json`); `Sec-Fetch-Site` on POST. |
-| this package | `docs/SUBMISSION.md`, `docs/VIDEO-OUTLINE.md`, `scripts/check_docs_numbers.py` (numbers guard for docs, in CI). |
+| [#7](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/7) | Saturday's dock scene in one command: `scripts/maqueta.py` (camera or file inputs, the same check-in, a human-readable `ACTA.md` next to the signed receipt; `--dry-run` on the fixtures for CI and rehearsal). |
+| [#8](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/8) | This package: `docs/SUBMISSION.md`, `docs/VIDEO-OUTLINE.md`, `scripts/check_docs_numbers.py` (numbers guard for docs, in CI); README corrected on local mode and the third signer key. |
 | [later PRs] | [A human: add every PR merged after this package, with its number.] |
 
 ## Meta tools used
