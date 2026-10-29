@@ -47,7 +47,7 @@ decide, explains a HOLD to the driver in their language, and signs the whole thi
 
 ## What was built during the event
 
-Every commit on `main` up to `7166006` is dated 2026-10-28 and those of #7 and #8 are dated 2026-10-29
+Every commit on `main` up to `7166006` is dated 2026-10-28 and those of #7 to #10 are dated 2026-10-29
 (`git log --format=%ad main`), inside the building period.
 By pull request, from `git log --merges`:
 
@@ -62,6 +62,8 @@ By pull request, from `git log --merges`:
 | [#6](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/6) | Local mode: a Glimmer generation cut in its analysis channel is an ERROR, never a parsed answer; real local check-in receipt (`receipts/20261028T165434299357Z-HOLD.json`); `Sec-Fetch-Site` on POST. |
 | [#7](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/7) | Saturday's dock scene in one command: `scripts/maqueta.py` (camera or file inputs, the same check-in, a human-readable `ACTA.md` next to the signed receipt; `--dry-run` on the fixtures for CI and rehearsal). |
 | [#8](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/8) | This package: `docs/SUBMISSION.md`, `docs/VIDEO-OUTLINE.md`, `scripts/check_docs_numbers.py` (numbers guard for docs, in CI); README corrected on local mode and the third signer key. |
+| [#9](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/9) | Follow-up to #8: this table lists #7 and #8; the maqueta commands in the video shot list. |
+| [#10](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/10) | Judge hardened with property tests over 5000 generated witness triples, fixed seed (`tests/test_verify_properties.py`), and two fail-open fixes: non-ASCII seal look-alikes no longer match, and a NaN weight limit now fails closed. The Spanish/English voice parser rewritten to fail closed on self-corrections, alternatives and approximations, with a 62-case SYNTHETIC hand-written corpus (`tests/data/voice-es-variantes.json`). |
 | [later PRs] | [A human: add every PR merged after this package, with its number.] |
 
 ## Meta tools used
@@ -129,7 +131,12 @@ request that added this file: `--mode local` has a real run, the local fallback 
 - `fixtures/` are hand-written and labelled FIXTURE in file name and content. They are not model outputs.
 - The `evals/` media are a handful of test inputs: two public photos, one synthetic Carta de Porte, one second
   of silence and one SYNTHETIC-TTS Spanish voice note (macOS voice, not a person). They are not an accuracy
-  benchmark. There is no real driver voice note yet, and the voice parser has only seen three transcripts of one note.
+  benchmark. There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
+  Beyond those it is tested on a hand-written SYNTHETIC corpus of 62 cases (`tests/data/voice-es-variantes.json`: number words,
+  "docena", spelled letters, "guión"/"raya", seals said as one number) and on generated number words. When the
+  driver corrects a count ("doce… no, trece"), gives two ("doce o trece"), hedges ("unas doce"), negates it or says
+  number words that do not read one way ("veinte cuatro"), the count is None and `detail` says why; a corrected or
+  repeated-but-different seal is None too. The parser never picks one of two values.
 - No local speech-to-text: in `--mode local` the voice witness is `NO_MODEL`, so local check-ins HOLD.
 - `--mode local` has one real Glimmer run (`receipts/20261028T165434299357Z-HOLD.json`); the local fallback of
   `--mode auto` has only been run against a fake worker in tests, no real run backs it yet.
