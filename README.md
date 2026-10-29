@@ -14,12 +14,15 @@ Rules, in order:
 
 1. every witness `OK`, otherwise **HOLD** with `NO_MODEL:<witness>` / `ERROR:<witness>`;
 2. `doc.pieces == vision.count == voice.count`, otherwise `COUNT_MISMATCH` (a missing count gives `VOICE_NO_COUNT`, `VISION_NO_COUNT`, `DOC_NO_PIECES`);
-3. `doc.seal` and `voice.seal` present and equal (alphanumerics, case-insensitive), otherwise `SEAL_MISSING` / `SEAL_MISMATCH`;
+3. `doc.seal` and `voice.seal` present and equal (letters and digits of any script, case-insensitive; spaces, dashes and punctuation ignored), otherwise `SEAL_MISSING` / `SEAL_MISMATCH`;
 4. `doc.weight_kg <= --max-weight-kg`, otherwise `OVERWEIGHT` (missing weight: `WEIGHT_MISSING`);
 5. `doc.hazmat is True` → `HAZMAT_REVIEW`;
 6. no reasons → **ACCEPT**.
 
 It is **fail-closed**: a missing key, a dead model or an unreadable answer is a HOLD, never an ACCEPT by default.
+`tests/test_verify_properties.py` checks these rules as properties over generated witness triples (standard library
+`random`, fixed seed): every failing check is listed, ACCEPT has no reasons, seals compare modulo case, spaces and
+dashes and nothing else, and the same inputs always give the same verdict.
 
 Every check-in writes a **signed receipt** to `receipts/`: canonical JSON (sorted keys, no spaces) signed
 with Ed25519 (PyNaCl). It holds the sha256 of each input, model + provider per witness
@@ -185,7 +188,12 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
 - `fixtures/` are hand-written and labelled FIXTURE in file name and content. They are not model outputs.
 - The `evals/` media are a handful of test inputs: two public photos, one synthetic Carta de Porte, one second
   of silence and one SYNTHETIC-TTS Spanish voice note (macOS voice, not a person). They are not an accuracy
-  benchmark. There is no real driver voice note yet, and the voice parser has only seen three transcripts of one note.
+  benchmark. There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
+  Beyond those it is tested on a hand-written SYNTHETIC corpus (`tests/data/voice-es-variantes.json`: number words,
+  "docena", spelled letters, "guión"/"raya", seals said as one number) and on generated number words. When the
+  driver corrects a count ("doce… no, trece"), gives two ("doce o trece"), hedges ("unas doce"), negates it or says
+  number words that do not read one way ("veinte cuatro"), the count is None and `detail` says why; a corrected or
+  repeated-but-different seal is None too. The parser never picks one of two values.
 - No local speech-to-text: in `--mode local` the voice witness is `NO_MODEL`, so local check-ins HOLD.
 - `--mode local` and the local fallback of `--mode auto` have only been run against a fake worker in tests; no real
   Glimmer run backs them yet.
