@@ -213,7 +213,7 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
 - The `evals/` media are a handful of test inputs: two public photos, one synthetic Carta de Porte, one second
   of silence and one SYNTHETIC-TTS Spanish voice note (macOS voice, not a person). They are not an accuracy
   benchmark. There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
-  Beyond those it is tested on a hand-written SYNTHETIC corpus (`tests/data/voice-es-variantes.json`: number words,
+  Beyond those it is tested on a hand-written SYNTHETIC corpus of 62 cases (`tests/data/voice-es-variantes.json`: number words,
   "docena", spelled letters, "guión"/"raya", seals said as one number) and on generated number words. When the
   driver corrects a count ("doce… no, trece"), gives two ("doce o trece"), hedges ("unas doce"), negates it or says
   number words that do not read one way ("veinte cuatro"), the count is None and `detail` says why; a corrected or
