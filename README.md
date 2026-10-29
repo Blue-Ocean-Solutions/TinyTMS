@@ -69,6 +69,27 @@ interpreter; `TINYTMS_GLIMMER_PATH` / `TINYTMS_LLAMA_PATH` point at a local snap
 `--explain local` asks Llama 3.1 8B Instruct (4-bit, `mlx_lm`) to explain a HOLD from the judge's reasons;
 the verdict is already fixed and does not change.
 
+## Saturday (sábado): one command for the dock scene
+
+Boxes in front of the camera, a printed Carta de Porte, a voice note: `scripts/maqueta.py` takes the three
+inputs, runs the same check-in (`tinytms/pipeline.py`, receipt in `receipts/`) and leaves a human-readable
+`ACTA.md` next to copies of the inputs in `maqueta/<utc>/`: each input's name and sha256, the mode, the three
+witnesses, the verdict and its reasons, the explanation if any, the receipt's file name and sha256, and the
+command line (repo-relative). Exit codes are the CLI's: `0` ACCEPT, `2` HOLD, `3` operational error.
+
+```bash
+# dry run (CI, rehearsal): fixtures/<case>, never a camera, a model or MODEL_API_KEY
+python scripts/maqueta.py --dry-run accept            # ACCEPT, exit 0
+python scripts/maqueta.py --dry-run count_mismatch    # HOLD, exit 2
+
+# real run: one frame per camera:N (on a terminal it waits for Enter before each grab: boxes first, then the paper)
+MODEL_API_KEY=... python scripts/maqueta.py --load camera:0 --doc camera:0 --voice nota.wav \
+    --mode auto --explain api --lang es
+```
+
+`--load` / `--doc` also take a JPEG or PNG file. A camera that cannot be opened or returns no frame is exit 3,
+written in `ACTA.md`, with no receipt and never a placeholder image.
+
 ## Explicación al chofer (driver explanation)
 
 `tinytms/explain.py`, `--explain api|none|local` (default `none`), `--lang es|en` (default `es`).
