@@ -162,8 +162,9 @@ wall-clock seconds, input sha256, the request without base64 and the raw answer 
 
 Any count, timing or token figure lives in those files, not in this README. The real answers (masks removed,
 no key) are also in `tests/data/real-*.json`, labelled `"provenance": "REAL meta-api <utc>"`, and
-`tests/test_real_data.py` runs the parsers against them offline. Those API-lane receipts are signed by the lane's
-key, public half `a100b16dfd814a49` (full hex in each receipt's `public_key`).
+`tests/test_real_data.py` runs the parsers against them offline. The day-2 API-lane receipts are signed by that lane's
+key, public half `a100b16dfd814a49`; the day-3 lane's receipts (the Spanish voice note, the explanations and the
+explained check-ins) by its own key, public half `37f9717d0627af51` (full hex in each receipt's `public_key`).
 
 ## Numbers policy
 
@@ -175,7 +176,7 @@ First receipt (2026-10-28, Apple M5 Max, 128 GB unified memory, `mlx_vlm` 0.7.10
 The model's sentence is in the receipt; it describes the door and the boxes and invents nothing.
 One run on one image is a measurement, not a benchmark.
 
-Receipts in this repo are signed by the measuring seat's key, public half
+The local receipts in this repo are signed by the measuring seat's key, public half
 `50be0cedb34ab0b93023708d5059408480839afad77d8ef7889ef3b5f53fbb9c`; pass it as `trusted_public_key` to pin origin.
 A receipt describes the run, never the machine: `sign_receipt` refuses any body carrying a user, temp or volume path,
 and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or `tests/data/`.
@@ -187,8 +188,8 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
   of silence and one SYNTHETIC-TTS Spanish voice note (macOS voice, not a person). They are not an accuracy
   benchmark. There is no real driver voice note yet, and the voice parser has only seen three transcripts of one note.
 - No local speech-to-text: in `--mode local` the voice witness is `NO_MODEL`, so local check-ins HOLD.
-- `--mode local` and the local fallback of `--mode auto` have only been run against a fake worker in tests; no real
-  Glimmer run backs them yet.
+- `--mode local` has one real Glimmer run (`receipts/20261028T165434299357Z-HOLD.json`); the local fallback of
+  `--mode auto` has only been run against a fake worker in tests, no real run backs it yet.
 - Muse Glimmer needs `mlx_vlm` >= 0.7.10 (model type `muse_glimmer`); point `TINYTMS_LOCAL_PYTHON` at an interpreter that has it.
 - The voice seal parser collapses a letter group repeated back to back ("MX MX") as an ASR stutter. A driver who
   really says a doubled prefix against a paper with a single one would match; accepted and written down here.

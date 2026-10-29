@@ -2,7 +2,8 @@
 
 The fields a Cerebral Valley / Devpost-style form asks for, filled only from what this repository shows.
 Anything the repository cannot prove is a `[bracketed placeholder]` for a human to fill or delete.
-Event: Meta Global AI Developer Hackathon 2026, Indie track (2026-10-26 to 2026-11-04).
+Event: Meta Global AI Developer Hackathon 2026, Indie track. Kickoff Monday 2026-10-26; building period 2026-10-27 to
+2026-11-04; submissions due Wednesday 2026-11-04, 9:00 PM ET (official participant guide, not stored in this repo).
 Any performance figure below cites a signed file in `receipts/` on the same line; `scripts/check_docs_numbers.py`
 enforces that in CI for `README.md` and every `docs/*.md`.
 
@@ -46,7 +47,7 @@ decide, explains a HOLD to the driver in their language, and signs the whole thi
 
 ## What was built during the event
 
-Every commit on `main` up to `7166006` is dated 2026-10-28 (`git log --format=%ad main`), inside the event window.
+Every commit on `main` up to `7166006` is dated 2026-10-28 (`git log --format=%ad main`), inside the building period.
 By pull request, from `git log --merges`:
 
 | PR | What it added |
@@ -120,22 +121,19 @@ brownpau, CC BY 2.0 (`evals/public/PROCEDENCIA.md`). The Carta de Porte and both
 
 ## What is not here yet
 
-Copied from the README section "What is NOT here (yet)" as of `main` @ `7166006`:
+Copied from the README section "What is NOT here (yet)". The local-mode bullet was corrected in the same pull
+request that added this file: `--mode local` has a real run, the local fallback of `--mode auto` does not.
 
 - `fixtures/` are hand-written and labelled FIXTURE in file name and content. They are not model outputs.
 - The `evals/` media are a handful of test inputs: two public photos, one synthetic Carta de Porte, one second
   of silence and one SYNTHETIC-TTS Spanish voice note (macOS voice, not a person). They are not an accuracy
   benchmark. There is no real driver voice note yet, and the voice parser has only seen three transcripts of one note.
 - No local speech-to-text: in `--mode local` the voice witness is `NO_MODEL`, so local check-ins HOLD.
-- `--mode local` and the local fallback of `--mode auto` have only been run against a fake worker in tests; no real
-  Glimmer run backs them yet.
+- `--mode local` has one real Glimmer run (`receipts/20261028T165434299357Z-HOLD.json`); the local fallback of
+  `--mode auto` has only been run against a fake worker in tests, no real run backs it yet.
 - Muse Glimmer needs `mlx_vlm` >= 0.7.10 (model type `muse_glimmer`); point `TINYTMS_LOCAL_PYTHON` at an interpreter that has it.
 - The voice seal parser collapses a letter group repeated back to back ("MX MX") as an ASR stutter. A driver who
   really says a doubled prefix against a paper with a single one would match; accepted and written down here.
 - `tinytms/capture.py` can grab a camera frame (`cv2.VideoCapture`), but the CLI does not use it yet. The web page
   is local and single-user. There are no TMS records (load / stop / document) and no exception tickets yet.
 - Nothing about customs or government filings.
-
-[A human, before submitting: the fourth bullet is older than PR #6. `receipts/20261028T165434299357Z-HOLD.json` is a
-real `--mode local` run with Glimmer; the local fallback of `--mode auto` still has no real run. Fix the README line
-or keep this note.]
