@@ -20,3 +20,5 @@ jobs:
         run: pytest -q
       - name: Numbers guard (README must cite receipts/ for ms/FPS/%/tok/s)
         run: pytest -q tests/test_readme_numbers.py
+      - name: Docs numbers guard (README.md and docs/*.md must cite an existing receipts/ file)
+        run: python scripts/check_docs_numbers.py
