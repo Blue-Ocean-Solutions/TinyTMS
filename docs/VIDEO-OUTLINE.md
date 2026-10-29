@@ -72,6 +72,8 @@ python scripts/live_eval.py --save-test-data tests/data                         
 python -m tinytms.cli checkin --mode api --explain api --lang es --load evals/public/boxes-pallet.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/es-doce-pallets-16k.wav   # key: beat 3
 python -m tinytms.cli checkin --mode local --load evals/public/boxes-pallet.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/es-doce-pallets-16k.wav   # Mac with Glimmer cached: beat 4
 python -m tinytms.web --port 8765 --receipts-dir receipts                              # the one-page web, if a beat uses it
+python scripts/maqueta.py --dry-run count_mismatch                                     # no key: rehearse the Saturday command
+python scripts/maqueta.py --load camera:0 --doc camera:0 --voice nota.wav --mode auto --explain api --lang es   # key + camera: Saturday's real scene, ACTA.md + receipt
 ```
 
 Re-running a command writes a **new** receipt; quote the new file, never edit an old one.
