@@ -72,6 +72,29 @@ interpreter; `TINYTMS_GLIMMER_PATH` / `TINYTMS_LLAMA_PATH` point at a local snap
 `--explain local` asks Llama 3.1 8B Instruct (4-bit, `mlx_lm`) to explain a HOLD from the judge's reasons;
 the verdict is already fixed and does not change.
 
+## Saturday (sábado): one command for the dock scene
+
+Boxes in front of the camera, a printed Carta de Porte, a voice note: `scripts/maqueta.py` takes the three
+inputs, runs the same check-in (`tinytms/pipeline.py`, receipt in `receipts/`) and leaves a human-readable
+`ACTA.md` next to copies of the inputs in `maqueta/<utc>/` (git-ignored: real photos and audio are committed
+only on purpose): each input's name and sha256, the mode, the three
+witnesses, the verdict and its reasons, the explanation if any, the receipt's file name and sha256, and the
+command line (repo-relative). Exit codes are the CLI's: `0` ACCEPT, `2` HOLD, `3` operational error.
+
+```bash
+# dry run (CI, rehearsal): fixtures/<case>, never a camera, a model or MODEL_API_KEY;
+# its FIXTURE receipt goes to <out>/receipts/, never to the repo's receipts/
+python scripts/maqueta.py --dry-run accept            # ACCEPT, exit 0
+python scripts/maqueta.py --dry-run count_mismatch    # HOLD, exit 2
+
+# real run: one frame per camera:N (on a terminal it waits for Enter before each grab: boxes first, then the paper)
+MODEL_API_KEY=... python scripts/maqueta.py --load camera:0 --doc camera:0 --voice nota.wav \
+    --mode auto --explain api --lang es
+```
+
+`--load` / `--doc` also take a JPEG or PNG file. A camera that cannot be opened or returns no frame is exit 3,
+written in `ACTA.md`, with no receipt and never a placeholder image.
+
 ## Explicación al chofer (driver explanation)
 
 `tinytms/explain.py`, `--explain api|none|local` (default `none`), `--lang es|en` (default `es`).
@@ -165,8 +188,9 @@ wall-clock seconds, input sha256, the request without base64 and the raw answer 
 
 Any count, timing or token figure lives in those files, not in this README. The real answers (masks removed,
 no key) are also in `tests/data/real-*.json`, labelled `"provenance": "REAL meta-api <utc>"`, and
-`tests/test_real_data.py` runs the parsers against them offline. Those API-lane receipts are signed by the lane's
-key, public half `a100b16dfd814a49` (full hex in each receipt's `public_key`).
+`tests/test_real_data.py` runs the parsers against them offline. The day-2 API-lane receipts are signed by that lane's
+key, public half `a100b16dfd814a49`; the day-3 lane's receipts (the Spanish voice note, the explanations and the
+explained check-ins) by its own key, public half `37f9717d0627af51` (full hex in each receipt's `public_key`).
 
 ## Numbers policy
 
@@ -178,7 +202,7 @@ First receipt (2026-10-28, Apple M5 Max, 128 GB unified memory, `mlx_vlm` 0.7.10
 The model's sentence is in the receipt; it describes the door and the boxes and invents nothing.
 One run on one image is a measurement, not a benchmark.
 
-Receipts in this repo are signed by the measuring seat's key, public half
+The local receipts in this repo are signed by the measuring seat's key, public half
 `50be0cedb34ab0b93023708d5059408480839afad77d8ef7889ef3b5f53fbb9c`; pass it as `trusted_public_key` to pin origin.
 A receipt describes the run, never the machine: `sign_receipt` refuses any body carrying a user, temp or volume path,
 and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or `tests/data/`.
@@ -195,8 +219,8 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
   number words that do not read one way ("veinte cuatro"), the count is None and `detail` says why; a corrected or
   repeated-but-different seal is None too. The parser never picks one of two values.
 - No local speech-to-text: in `--mode local` the voice witness is `NO_MODEL`, so local check-ins HOLD.
-- `--mode local` and the local fallback of `--mode auto` have only been run against a fake worker in tests; no real
-  Glimmer run backs them yet.
+- `--mode local` has one real Glimmer run (`receipts/20261028T165434299357Z-HOLD.json`); the local fallback of
+  `--mode auto` has only been run against a fake worker in tests, no real run backs it yet.
 - Muse Glimmer needs `mlx_vlm` >= 0.7.10 (model type `muse_glimmer`); point `TINYTMS_LOCAL_PYTHON` at an interpreter that has it.
 - The voice seal parser collapses a letter group repeated back to back ("MX MX") as an ASR stutter. A driver who
   really says a doubled prefix against a paper with a single one would match; accepted and written down here.
