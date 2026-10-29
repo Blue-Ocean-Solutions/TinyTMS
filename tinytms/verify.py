@@ -13,7 +13,7 @@ Rules 2-5 all run so the HOLD lists every discrepancy, not just the first.
 from __future__ import annotations
 
 import math
-import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -41,10 +41,15 @@ class Verdict:
 
 
 def normalize_seal(seal: str | None) -> str | None:
-    """Uppercase alphanumerics only, so 'mx-48 213' == 'MX48213'. Empty -> None."""
+    """Uppercase letters and digits only, so 'mx-48 213' == 'MX48213'. Empty -> None.
+
+    Spaces, dashes and punctuation of any script go; letters and digits of any script stay (with their accents, NFC),
+    so 'MXÑ-48213' or a Cyrillic look-alike never equals 'MX48213'. For ASCII input this is the old [^0-9A-Za-z] rule.
+    """
     if seal is None:
         return None
-    s = re.sub(r"[^0-9A-Za-z]", "", str(seal)).upper()
+    kept = "".join(ch for ch in unicodedata.normalize("NFC", str(seal)) if unicodedata.category(ch)[0] in "LMN")
+    s = unicodedata.normalize("NFC", kept.upper())
     return s or None
 
 
@@ -107,7 +112,7 @@ def judge(
     if not isinstance(w, (int, float)) or isinstance(w, bool) or not math.isfinite(w) or w < 0:
         reasons.append("WEIGHT_MISSING")
         checks["weight"] = "fail"
-    elif w > limits.max_weight_kg:
+    elif not w <= limits.max_weight_kg:  # not '>': a NaN limit must fail closed, not let every weight through
         reasons.append(f"OVERWEIGHT doc={w:g}kg max={limits.max_weight_kg:g}kg")
         checks["weight"] = "fail"
     else:
