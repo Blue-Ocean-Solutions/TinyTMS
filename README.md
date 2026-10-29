@@ -14,12 +14,15 @@ Rules, in order:
 
 1. every witness `OK`, otherwise **HOLD** with `NO_MODEL:<witness>` / `ERROR:<witness>`;
 2. `doc.pieces == vision.count == voice.count`, otherwise `COUNT_MISMATCH` (a missing count gives `VOICE_NO_COUNT`, `VISION_NO_COUNT`, `DOC_NO_PIECES`);
-3. `doc.seal` and `voice.seal` present and equal (alphanumerics, case-insensitive), otherwise `SEAL_MISSING` / `SEAL_MISMATCH`;
+3. `doc.seal` and `voice.seal` present and equal (letters and digits of any script, case-insensitive; spaces, dashes and punctuation ignored), otherwise `SEAL_MISSING` / `SEAL_MISMATCH`;
 4. `doc.weight_kg <= --max-weight-kg`, otherwise `OVERWEIGHT` (missing weight: `WEIGHT_MISSING`);
 5. `doc.hazmat is True` → `HAZMAT_REVIEW`;
 6. no reasons → **ACCEPT**.
 
 It is **fail-closed**: a missing key, a dead model or an unreadable answer is a HOLD, never an ACCEPT by default.
+`tests/test_verify_properties.py` checks these rules as properties over generated witness triples (standard library
+`random`, fixed seed): every failing check is listed, ACCEPT has no reasons, seals compare modulo case, spaces and
+dashes and nothing else, and the same inputs always give the same verdict.
 
 Every check-in writes a **signed receipt** to `receipts/`: canonical JSON (sorted keys, no spaces) signed
 with Ed25519 (PyNaCl). It holds the sha256 of each input, model + provider per witness
@@ -68,6 +71,29 @@ is reported as an explicit error instead of taking the CLI down. `TINYTMS_LOCAL_
 interpreter; `TINYTMS_GLIMMER_PATH` / `TINYTMS_LLAMA_PATH` point at a local snapshot directory.
 `--explain local` asks Llama 3.1 8B Instruct (4-bit, `mlx_lm`) to explain a HOLD from the judge's reasons;
 the verdict is already fixed and does not change.
+
+## Saturday (sábado): one command for the dock scene
+
+Boxes in front of the camera, a printed Carta de Porte, a voice note: `scripts/maqueta.py` takes the three
+inputs, runs the same check-in (`tinytms/pipeline.py`, receipt in `receipts/`) and leaves a human-readable
+`ACTA.md` next to copies of the inputs in `maqueta/<utc>/` (git-ignored: real photos and audio are committed
+only on purpose): each input's name and sha256, the mode, the three
+witnesses, the verdict and its reasons, the explanation if any, the receipt's file name and sha256, and the
+command line (repo-relative). Exit codes are the CLI's: `0` ACCEPT, `2` HOLD, `3` operational error.
+
+```bash
+# dry run (CI, rehearsal): fixtures/<case>, never a camera, a model or MODEL_API_KEY;
+# its FIXTURE receipt goes to <out>/receipts/, never to the repo's receipts/
+python scripts/maqueta.py --dry-run accept            # ACCEPT, exit 0
+python scripts/maqueta.py --dry-run count_mismatch    # HOLD, exit 2
+
+# real run: one frame per camera:N (on a terminal it waits for Enter before each grab: boxes first, then the paper)
+MODEL_API_KEY=... python scripts/maqueta.py --load camera:0 --doc camera:0 --voice nota.wav \
+    --mode auto --explain api --lang es
+```
+
+`--load` / `--doc` also take a JPEG or PNG file. A camera that cannot be opened or returns no frame is exit 3,
+written in `ACTA.md`, with no receipt and never a placeholder image.
 
 ## Explicación al chofer (driver explanation)
 
@@ -162,8 +188,9 @@ wall-clock seconds, input sha256, the request without base64 and the raw answer 
 
 Any count, timing or token figure lives in those files, not in this README. The real answers (masks removed,
 no key) are also in `tests/data/real-*.json`, labelled `"provenance": "REAL meta-api <utc>"`, and
-`tests/test_real_data.py` runs the parsers against them offline. Those API-lane receipts are signed by the lane's
-key, public half `a100b16dfd814a49` (full hex in each receipt's `public_key`).
+`tests/test_real_data.py` runs the parsers against them offline. The day-2 API-lane receipts are signed by that lane's
+key, public half `a100b16dfd814a49`; the day-3 lane's receipts (the Spanish voice note, the explanations and the
+explained check-ins) by its own key, public half `37f9717d0627af51` (full hex in each receipt's `public_key`).
 
 ## Numbers policy
 
@@ -175,7 +202,7 @@ First receipt (2026-10-28, Apple M5 Max, 128 GB unified memory, `mlx_vlm` 0.7.10
 The model's sentence is in the receipt; it describes the door and the boxes and invents nothing.
 One run on one image is a measurement, not a benchmark.
 
-Receipts in this repo are signed by the measuring seat's key, public half
+The local receipts in this repo are signed by the measuring seat's key, public half
 `50be0cedb34ab0b93023708d5059408480839afad77d8ef7889ef3b5f53fbb9c`; pass it as `trusted_public_key` to pin origin.
 A receipt describes the run, never the machine: `sign_receipt` refuses any body carrying a user, temp or volume path,
 and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or `tests/data/`.
@@ -185,10 +212,15 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
 - `fixtures/` are hand-written and labelled FIXTURE in file name and content. They are not model outputs.
 - The `evals/` media are a handful of test inputs: two public photos, one synthetic Carta de Porte, one second
   of silence and one SYNTHETIC-TTS Spanish voice note (macOS voice, not a person). They are not an accuracy
-  benchmark. There is no real driver voice note yet, and the voice parser has only seen three transcripts of one note.
+  benchmark. There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
+  Beyond those it is tested on a hand-written SYNTHETIC corpus of 62 cases (`tests/data/voice-es-variantes.json`: number words,
+  "docena", spelled letters, "guión"/"raya", seals said as one number) and on generated number words. When the
+  driver corrects a count ("doce… no, trece"), gives two ("doce o trece"), hedges ("unas doce"), negates it or says
+  number words that do not read one way ("veinte cuatro"), the count is None and `detail` says why; a corrected or
+  repeated-but-different seal is None too. The parser never picks one of two values.
 - No local speech-to-text: in `--mode local` the voice witness is `NO_MODEL`, so local check-ins HOLD.
-- `--mode local` and the local fallback of `--mode auto` have only been run against a fake worker in tests; no real
-  Glimmer run backs them yet.
+- `--mode local` has one real Glimmer run (`receipts/20261028T165434299357Z-HOLD.json`); the local fallback of
+  `--mode auto` has only been run against a fake worker in tests, no real run backs it yet.
 - Muse Glimmer needs `mlx_vlm` >= 0.7.10 (model type `muse_glimmer`); point `TINYTMS_LOCAL_PYTHON` at an interpreter that has it.
 - The voice seal parser collapses a letter group repeated back to back ("MX MX") as an ASR stutter. A driver who
   really says a doubled prefix against a paper with a single one would match; accepted and written down here.
