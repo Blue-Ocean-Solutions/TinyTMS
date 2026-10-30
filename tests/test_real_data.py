@@ -154,3 +154,11 @@ def test_judge_on_real_witnesses_holds():
     verdict = judge(v, doc, a, Limits())
     assert verdict.decision == "HOLD"
     assert "VOICE_NO_COUNT" in " ".join(verdict.reasons)
+
+
+def test_real_spark_reads_hazmat_as_false_not_unknown():
+    # The synthetic Carta de Porte says "MATERIAL PELIGROSO: NO". The judge ACCEPTs both False and None (only True is
+    # HAZMAT_REVIEW, Carlos 2026-10-29), so pin the reading itself: Spark said false, not "not stated".
+    for d in (x for x in load("spark") if x["response_json"].get("status") == "completed"):
+        w = doc_from_spark(d["response_json"], model=d["model"], **META)
+        assert w.hazmat is False and w.hazmat is not None
