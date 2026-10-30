@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import re
 from pathlib import Path
 
@@ -141,4 +143,6 @@ def doc_local(vlm: LocalVLM, image: str | Path) -> DocWitness:
         return DocWitness(status="ERROR", detail=f"{type(e).__name__}: {e}", **meta)
     if not isinstance(data, dict):
         return DocWitness(status="ERROR", detail="output JSON is not an object", **meta)
-    return doc_from_fields(data, **meta)
+    w = doc_from_fields(data, **meta)
+    # same timing note as vision_local, so receipt_show / pull_the_plug can print the paper witness's seconds
+    return replace(w, detail=f"{w.detail} wall_s={g.wall_s}".strip())
