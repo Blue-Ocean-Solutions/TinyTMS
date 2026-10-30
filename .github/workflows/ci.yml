@@ -24,3 +24,7 @@ jobs:
         run: python scripts/check_docs_numbers.py
       - name: Receipts index (INDEX.md fresh; every receipt verifies with a signer in keys/known_signers.txt)
         run: python scripts/receipts_index.py --check
+      - name: Measured table is not stale (docs/MEASURED.md regenerated from receipts/)
+        run: |
+          python scripts/receipts_table.py --out "$RUNNER_TEMP/MEASURED.md"
+          diff -u docs/MEASURED.md "$RUNNER_TEMP/MEASURED.md"

@@ -174,42 +174,22 @@ TINYTMS_LOCAL_PYTHON=/path/to/mlx-venv/bin/python python -m tinytms.cli checkin 
 Every signed receipt is listed in `receipts/INDEX.md` (also `GET /receipts/` on the web page): kind, model, result,
 signature ✓/✗ and signer seat; CI fails if it is stale or a receipt is signed by a key not in `keys/known_signers.txt`.
 
-The Meta Model API client (`tinytms/meta_api.py`) is built to request/response shapes measured with a live key
-on 2026-10-28: SAM 3.1 over `/v1/responses` with SSE streaming, Muse Spark 1.3 over `/v1/responses`, Muse Voice
-Transcribe over `/v1/asr/transcribe` (multipart). Real runs, each with a signed receipt holding model, UTC time,
-wall-clock seconds, input sha256, the request without base64 and the raw answer (truncated, SAM masks removed):
-
-- `python scripts/live_eval.py --save-test-data tests/data` over `evals/` (sources in `evals/PROCEDENCIA.md`):
-  one receipt per call, `receipts/live-sam-*.json`, `receipts/live-spark-*.json`, `receipts/live-voice-*.json`.
-- `python -m tinytms.cli checkin --mode api --load evals/public/boxes-pallet.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/silencio_16k.wav`:
-  `receipts/20261028T153041947742Z-HOLD.json` (HOLD: `VOICE_NO_COUNT`, `COUNT_MISMATCH doc=12 vision=1`, `SEAL_MISSING voice`;
-  the per-call records sit under `calls`).
-- Every API call made (model, UTC, HTTP status, seconds): `receipts/llamadas.json`, with per-model caps.
-- **Local mode, real** (2026-10-28, Apple M5 Max, Muse Glimmer 30B 4-bit through `mlx_vlm` 0.7.10, no network):
-  `python -m tinytms.cli checkin --mode local --load evals/public/boxes-pallet.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/es-doce-pallets-16k.wav`
-  → `receipts/20261028T165434299357Z-HOLD.json`: photo count 1 (the boxes sit on one pallet), paper pieces 12 / 4800 kg / seal MX-48213 / hazmat false,
-  voice `NO_MODEL` (no local speech-to-text) → HOLD. Wall-clock per witness is in the receipt. The first attempts with small
-  token budgets returned Glimmer's analysis channel instead of an answer; those raw outputs are kept as test data in
-  `tests/data/real-local-glimmer-truncated-20261028.json` and a truncated generation is now an explicit ERROR. With
-  `TINYTMS_LANE` / `TINYTMS_LANE_CAPS` (e.g. `sam-3.1=20,muse-spark-1.3=25`) each record carries the lane and the
-  client refuses a call once that lane's own records reach its cap (`lanes` in the ledger).
-- 2026-10-28, lane 3: `python scripts/live_eval.py --only voice-es --keys-dir keys-lane3 --save-test-data tests/data`
-  over the SYNTHETIC-TTS note `evals/voice/es-doce-pallets-16k.wav`: `receipts/live-voice-es-doce-pallets-16k-20261028T160244Z.json`.
-  The same audio was transcribed three times that day (that run plus the two check-ins below) and came back three
-  ways ("doce payets" / "pajets" / "payettes"; seal "MX guión…", "MX MX guión…", "SMX SMX guión…"). The ASR is not
-  deterministic. All three real transcripts are in `tests/data/real-voice-es-*.json` and `tests/test_real_data.py`
-  pins the parse of each: count 12 every time, seal `MX-48213` for the first two and `SMX-48213` for the third.
-  "SMX" is not guessed back to "MX", so that run HOLDs on `SEAL_MISMATCH`.
-- `python -m tinytms.cli checkin --mode api --explain api --lang es --load evals/public/boxes-pallet.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/es-doce-pallets-16k.wav --keys-dir keys-lane3`,
-  run twice: `receipts/20261028T160514217793Z-HOLD.json`, `receipts/20261028T160626939074Z-HOLD.json`. Both HOLD
-  with a Spanish explanation inside. The witness values in those receipts come from the parser as it stood at the
-  time (before "pajets"/"payettes" and the stutter rule), so they show `VOICE_NO_COUNT` and a `SEAL_MISMATCH`.
-
-Any count, timing or token figure lives in those files, not in this README. The real answers (masks removed,
-no key) are also in `tests/data/real-*.json`, labelled `"provenance": "REAL meta-api <utc>"`, and
-`tests/test_real_data.py` runs the parsers against them offline. The day-2 API-lane receipts are signed by that lane's
-key, public half `a100b16dfd814a49`; the day-3 lane's receipts (the Spanish voice note, the explanations and the
-explained check-ins) by its own key, public half `37f9717d0627af51` (full hex in each receipt's `public_key`).
+Every file in `receipts/` is one row of [docs/MEASURED.md](docs/MEASURED.md): UTC, kind, model and provider, HTTP
+status, seconds, verdict or fields read, signing key and a link to the receipt. `python scripts/receipts_table.py`
+writes it from the receipts alone, checks each signature with the public key the receipt carries and that key
+against `keys/known_signers.txt`, and lists what does not verify (the unsigned call ledger `receipts/llamadas.json`,
+a receipt signed by an unknown key) under "Not verified" instead of dropping it.
+CI regenerates the table and fails if the committed one differs, so no figure here can drift from its receipt.
+The API client (`tinytms/meta_api.py`) is built to the request/response shapes measured with a live key on
+2026-10-28. The real answers (masks removed, no key) are also in `tests/data/real-*.json`, labelled
+`"provenance": "REAL meta-api <utc>"`, and `tests/test_real_data.py` runs today's parsers on them offline: a row
+shows what was recorded then, the tests what the code reads now (the same voice note came back three ways,
+"payets" / "pajets" / "payettes", and all three parse to 12; the third read the seal as "SMX", which is not guessed
+back to "MX", so it HOLDs on `SEAL_MISMATCH`). Every API call is also logged to the ledger; with `TINYTMS_LANE` /
+`TINYTMS_LANE_CAPS` (e.g. `sam-3.1=20,muse-spark-1.3=25`) each record carries its lane and the client refuses a call
+once that lane's own records reach its cap. Keys: `a100b16dfd814a49` is the day-2 API lane,
+`37f9717d0627af51` the day-3 lane (Spanish voice note, explanations, explained check-ins), `50be0cedb34ab0b9` the
+measuring seat on the Mac.
 
 ## Numbers policy
 
