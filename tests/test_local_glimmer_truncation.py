@@ -68,3 +68,19 @@ def test_local_budgets_leave_room_for_the_analysis_channel():
                            prompt_tokens=1, generation_tokens=40, generation_tps=1.0, peak_memory_gb=1.0, wall_s=0.1))
     w = doc_local(f, DOC)
     assert f.calls[0]["max_tokens"] == DOC_MAX_TOKENS and w.status == "OK" and w.pieces == 12
+
+
+def test_doc_local_records_wall_s_like_vision():
+    """2026-10-30 (pregunta de Nube-4 en el PR #14): el testigo de papel local no guardaba `wall_s` y
+    `receipt_show.py` / `pull_the_plug.py` imprimían «-» para sus segundos. El de visión sí lo guarda."""
+    f = FakeVLM(Generation(text='{"pieces": 12, "weight_kg": 4800, "seal": "MX-48213", "shipper": "a", "consignee": "b", "hazmat": false}',
+                           prompt_tokens=1, generation_tokens=40, generation_tps=1.0, peak_memory_gb=1.0, wall_s=7.25))
+    w = doc_local(f, DOC)
+    assert w.status == "OK" and w.pieces == 12
+    assert "wall_s=7.25" in w.detail
+
+
+def test_doc_local_incomplete_keeps_no_fields_but_says_its_time():
+    g = gen(CASES[("doc", True)], generation_tokens=DOC_MAX_TOKENS, truncated=True)
+    w = doc_local(FakeVLM(g), DOC)
+    assert w.status == "ERROR" and w.pieces is None
