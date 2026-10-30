@@ -22,3 +22,5 @@ jobs:
         run: pytest -q tests/test_readme_numbers.py
       - name: Docs numbers guard (README.md and docs/*.md must cite an existing receipts/ file)
         run: python scripts/check_docs_numbers.py
+      - name: Receipts index (INDEX.md fresh; every receipt verifies with a signer in keys/known_signers.txt)
+        run: python scripts/receipts_index.py --check
