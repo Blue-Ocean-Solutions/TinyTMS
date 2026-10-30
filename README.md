@@ -160,8 +160,9 @@ signature ✓/✗ and signer seat; CI fails if it is stale or a receipt is signe
 
 Every file in `receipts/` is one row of [docs/MEASURED.md](docs/MEASURED.md): UTC, kind, model and provider, HTTP
 status, seconds, verdict or fields read, signing key and a link to the receipt. `python scripts/receipts_table.py`
-writes it from the receipts alone, checks each signature with the public key the receipt carries, and lists what
-does not verify (the unsigned call ledger `receipts/llamadas.json`) under "Not verified" instead of dropping it.
+writes it from the receipts alone, checks each signature with the public key the receipt carries and that key
+against `keys/known_signers.txt`, and lists what does not verify (the unsigned call ledger `receipts/llamadas.json`,
+a receipt signed by an unknown key) under "Not verified" instead of dropping it.
 CI regenerates the table and fails if the committed one differs, so no figure here can drift from its receipt.
 The API client (`tinytms/meta_api.py`) is built to the request/response shapes measured with a live key on
 2026-10-28. The real answers (masks removed, no key) are also in `tests/data/real-*.json`, labelled
