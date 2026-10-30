@@ -4,6 +4,7 @@
 
 GET  /                      form: load photo, document photo, voice note, mode, explain, language
 POST /checkin               multipart -> the same pipeline as the CLI -> HTML with witnesses, verdict, receipt link
+GET  /receipts/             every receipt, verified, signer named (the same table as receipts/INDEX.md)
 GET  /receipts/<name>.json  the signed receipt (safe names only: [A-Za-z0-9._-]+, no "..")
 
 Binds 127.0.0.1 by default. Uploads live in a temporary directory for the length of the request; the
@@ -25,6 +26,7 @@ from typing import Any, Callable, Iterable
 
 from .pipeline import EXPLAIN_MODES, MODES, CheckinResult, ClientFactory, InputError, run_checkin
 from .receipt import redact_machine_paths
+from .receipts_index import build_rows, clean, load_known_signers, render_html_table
 from .verify import DEFAULT_MAX_WEIGHT_KG
 from .witness import DocWitness, VisionWitness, VoiceWitness
 
@@ -202,8 +204,10 @@ def make_app(
     max_upload_bytes: int = MAX_UPLOAD_BYTES,
     allow_api: bool = False,
     allowed_hosts: Iterable[str] | None = None,
+    known_signers: str | Path | None = None,
 ) -> Callable[[dict[str, Any], StartResponse], list[bytes]]:
     rdir, fdir = Path(receipts_dir), Path(fixtures_dir)
+    signers = Path(known_signers) if known_signers is not None else Path(keys_dir) / "known_signers.txt"
     hosts = {h.lower() for h in (allowed_hosts if allowed_hosts is not None else LOOPBACK_HOSTS)}
 
     def send(start: StartResponse, status: str, body: bytes, ctype: str = "text/html; charset=utf-8") -> list[bytes]:
@@ -271,6 +275,17 @@ def make_app(
             return error(start, "500 Internal Server Error", f"{type(e).__name__}: {e}")
         return send(start, "200 OK", result_html(res))
 
+    def receipts_page(start: StartResponse) -> list[bytes]:
+        try:
+            known = load_known_signers(signers)
+        except (OSError, ValueError):
+            known = {}  # no allowlist: every row says unknown signer, nothing passes silently
+        rows = build_rows(rdir, known)
+        body = (f"<h1>tinyTMS · recibos</h1><p class=\"sub\">{sum(clean(r) for r in rows)} de {len(rows)} recibos "
+                "verifican con un firmante conocido.</p><div style=\"overflow-x:auto\">" + render_html_table(rows) + "</div>"
+                + "<p><a href=\"/\">← check-in</a></p>")
+        return send(start, "200 OK", _page("tinyTMS recibos", body))
+
     def receipt(name: str, start: StartResponse) -> list[bytes]:
         if not SAFE_NAME.fullmatch(name) or ".." in name or not name.endswith(".json"):
             return error(start, "404 Not Found", "no such receipt")
@@ -289,6 +304,8 @@ def make_app(
             if method != "POST":
                 return error(start, "405 Method Not Allowed", "POST a multipart form to /checkin")
             return checkin(environ, start)
+        if path == "/receipts/" and method in ("GET", "HEAD"):
+            return receipts_page(start)
         if path.startswith("/receipts/") and method in ("GET", "HEAD"):
             return receipt(path[len("/receipts/"):], start)
         return error(start, "404 Not Found", "not found")

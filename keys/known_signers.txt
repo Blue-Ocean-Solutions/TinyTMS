@@ -1,0 +1,6 @@
+# Ed25519 public keys (hex) whose receipts tinyTMS accepts; one per line, '#' names the seat.
+# A receipt signed by any other key is "✗ unknown signer" in receipts/INDEX.md and fails
+# `python scripts/receipts_index.py --check` (CI). Add a seat here only on purpose, in its own commit.
+50be0cedb34ab0b93023708d5059408480839afad77d8ef7889ef3b5f53fbb9c  # measuring seat: the local Glimmer receipts
+a100b16dfd814a49344a3a82a23b6ca485c4c662b11c654e9053b8b398b4c91f  # day-2 API lane: live witnesses and the first API check-in
+37f9717d0627af517d29f4f2af1bf77315b2354d597181a44bcb4ae0413e6389  # day-3 API lane: Spanish voice note, explanations, explained check-ins

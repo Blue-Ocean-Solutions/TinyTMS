@@ -155,6 +155,9 @@ TINYTMS_LOCAL_PYTHON=/path/to/mlx-venv/bin/python python -m tinytms.cli checkin 
 
 ## What is measured
 
+Every signed receipt is listed in `receipts/INDEX.md` (also `GET /receipts/` on the web page): kind, model, result,
+signature ✓/✗ and signer seat; CI fails if it is stale or a receipt is signed by a key not in `keys/known_signers.txt`.
+
 The Meta Model API client (`tinytms/meta_api.py`) is built to request/response shapes measured with a live key
 on 2026-10-28: SAM 3.1 over `/v1/responses` with SSE streaming, Muse Spark 1.3 over `/v1/responses`, Muse Voice
 Transcribe over `/v1/asr/transcribe` (multipart). Real runs, each with a signed receipt holding model, UTC time,
