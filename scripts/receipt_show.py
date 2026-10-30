@@ -1,9 +1,11 @@
 """One screen per signed receipt: the signature first, then what answered each witness and what the judge said.
 
-    python scripts/receipt_show.py receipts/<file>.json [--trusted-key <hex>]
+    python scripts/receipt_show.py receipts/<file>.json [--trusted-key <hex>] [--allow-unknown-signers]
 
-Exit 0 when the signature verifies (and, with --trusted-key, was made by that key); 1 when it does not, and the
-body is then not shown as a receipt; 3 when the file cannot be read. Seconds come only from the receipt: an API
+Exit 0 when the signature verifies AND its signer is listed in keys/known_signers.txt (or, with --trusted-key, is
+that key); 1 otherwise, and the body is then not shown as a receipt; 3 when the file or the signer list cannot be
+read. A valid signature by an unlisted key proves integrity, not origin: "✗ unknown signer". --allow-unknown-signers
+shows such a receipt anyway, for local use only. Seconds come only from the receipt: an API
 witness's call record (`calls.<witness>.s`) or a local answer's `wall_s=` in its detail; anything else prints `-`.
 """
 
@@ -16,12 +18,31 @@ import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO))
 
 from tinytms.receipt import verify_receipt  # noqa: E402
+from tinytms.receipts_index import load_known_signers  # noqa: E402
+
+KNOWN_SIGNERS = REPO / "keys" / "known_signers.txt"
 
 WITNESSES = ("vision", "doc", "voice")
 WALL_S = re.compile(r"\bwall_s=([0-9]+(?:\.[0-9]+)?)\b")
+
+
+def check(raw: bytes, known: dict[str, str], trusted_key: str | None = None,
+          allow_unknown: bool = False) -> tuple[bool, str]:
+    """(passes, one line on the signature and who made it). Integrity first, then origin."""
+    if not verify_receipt(raw, trusted_public_key=trusted_key):
+        return False, "signature FAILED" + (" for the trusted key" if trusted_key else "")
+    if trusted_key:
+        return True, "signature OK (trusted key)"
+    pk = str(json.loads(raw).get("public_key", "")).lower()
+    if pk in known:
+        return True, f"signature OK · known signer: {known[pk] or pk[:16]}"
+    if allow_unknown:
+        return True, f"signature OK · unknown signer allowed (local use only): {pk[:16]}"
+    return False, f"✗ unknown signer {pk[:16]}: not in the known signers list"
 
 
 def seconds(receipt: dict[str, Any], name: str) -> str:
@@ -96,17 +117,22 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("receipt")
     ap.add_argument("--trusted-key", help="hex Ed25519 public key the receipt must be signed by")
+    ap.add_argument("--known-signers", default=str(KNOWN_SIGNERS),
+                    help="allowlist of signer keys (default: %(default)s)")
+    ap.add_argument("--allow-unknown-signers", action="store_true", help="local use only: show a receipt whose "
+                    "signature verifies but whose signer is not in the list")
     args = ap.parse_args(argv)
     path = Path(args.receipt)
     try:
         raw = path.read_bytes()
-    except OSError as e:
-        print(f"ERROR: cannot read {path.name}: {type(e).__name__}", file=sys.stderr)
+        known = {} if args.trusted_key else load_known_signers(args.known_signers)
+    except (OSError, ValueError) as e:
+        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
         return 3
-    if not verify_receipt(raw, trusted_public_key=args.trusted_key):
-        print(f"{path.name}: signature FAILED" + (" for the trusted key" if args.trusted_key else ""))
+    ok, line = check(raw, known, args.trusted_key, args.allow_unknown_signers)
+    print(f"{path.name}: {line}")
+    if not ok:
         return 1
-    print(f"{path.name}: signature OK" + (" (trusted key)" if args.trusted_key else ""))
     print("\n".join(render(json.loads(raw))))
     return 0
 

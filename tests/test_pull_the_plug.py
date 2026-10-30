@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from tests.test_local_modes import DOC_FIELDS, FAKE_WORKER
+from tinytms.receipt import load_or_create_key, public_key_hex
 
 ROOT = Path(__file__).resolve().parent.parent
 FIX = ROOT / "fixtures" / "accept"
@@ -41,12 +42,15 @@ def local_env(tmp_path, monkeypatch):
         monkeypatch.setenv(k, v)
     for k in ("MODEL_API_KEY", "FAKE_FAIL_LOAD", "TINYTMS_META_BASE_URL"):
         monkeypatch.delenv(k, raising=False)
+    sk = load_or_create_key(tmp_path / "k")  # the scratch seat the child CLI will sign with
+    (tmp_path / "signers.txt").write_text(f"{public_key_hex(sk)}  # scratch seat\n", encoding="utf-8")
     return tmp_path
 
 
-def _run(m, tmp: Path, *extra: str) -> int:
+def _run(m, tmp: Path, *extra: str, signers: bool = True) -> int:
+    known = ["--known-signers", str(tmp / "signers.txt")] if signers else []
     return m.main([*INPUTS, "--receipts-dir", str(tmp / "r"), "--keys-dir", str(tmp / "k"),
-                   "--unreachable-url", "http://127.0.0.1:9/v1", *extra])
+                   "--unreachable-url", "http://127.0.0.1:9/v1", *known, *extra])
 
 
 def _receipts(tmp: Path) -> dict[str, dict]:
@@ -110,12 +114,21 @@ def test_unreachable_api_falls_back_on_transport_failure(local_env, monkeypatch,
     m = _script()
     monkeypatch.setenv("MODEL_API_KEY", "FIXTURE-not-a-key")
     monkeypatch.setenv("TINYTMS_META_BASE_URL", m.closed_local_url())  # run 1 must not reach the real API either
-    assert m.main([*INPUTS, "--receipts-dir", str(local_env / "r"), "--keys-dir", str(local_env / "k")]) == 0
+    assert m.main([*INPUTS, "--receipts-dir", str(local_env / "r"), "--keys-dir", str(local_env / "k"),
+                   "--known-signers", str(local_env / "signers.txt")]) == 0
     r = _receipts(local_env)
     assert r["api"]["calls"]["vision"]["detail"].startswith("transport:")
     assert all(f["why"].startswith("transport:") for f in r["auto"]["fallback"].values())
     assert r["auto"]["witnesses"]["vision"]["provider"] == "local-mlx"
     assert "FIXTURE-not-a-key" not in capsys.readouterr().out
+
+
+def test_receipts_by_an_unknown_signer_are_refused_by_default(local_env, capsys):
+    m = _script()
+    assert _run(m, local_env, signers=False) == 1  # the scratch seat is not in keys/known_signers.txt
+    err = capsys.readouterr().err
+    assert "unknown signer" in err
+    assert _run(m, local_env, "--allow-unknown-signers", signers=False) == 0
 
 
 def test_missing_input_is_an_operational_error(local_env, capsys):

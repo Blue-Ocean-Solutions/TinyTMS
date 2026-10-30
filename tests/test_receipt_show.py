@@ -6,13 +6,29 @@ from pathlib import Path
 
 import pytest
 
-from tinytms.receipt import MACHINE_PATH_PREFIXES, load_or_create_key, sign_receipt
+from tinytms.receipt import MACHINE_PATH_PREFIXES, load_or_create_key, public_key_hex, sign_receipt
 
 ROOT = Path(__file__).resolve().parent.parent
 RECEIPTS = sorted(p for p in (ROOT / "receipts").glob("*.json") if p.name != "llamadas.json")
 LOCAL_HOLD = ROOT / "receipts" / "20261028T165434299357Z-HOLD.json"
 API_HOLD = ROOT / "receipts" / "20261028T153041947742Z-HOLD.json"
 SEAT_KEY = "50be0cedb34ab0b93023708d5059408480839afad77d8ef7889ef3b5f53fbb9c"
+
+
+def _forge(tmp_path: Path, source: Path) -> tuple[Path, str]:
+    """A real receipt's body re-signed by a fresh key: the signature verifies, the signer is nobody we know."""
+    body = {k: v for k, v in json.loads(source.read_text(encoding="utf-8")).items()
+            if k not in ("signature", "public_key")}
+    sk = load_or_create_key(tmp_path / "forger")
+    p = tmp_path / source.name
+    p.write_text(json.dumps(sign_receipt(body, sk)), encoding="utf-8")
+    return p, public_key_hex(sk)
+
+
+def _signers(tmp_path: Path, key_hex: str) -> Path:
+    p = tmp_path / "known_signers.txt"
+    p.write_text(f"{key_hex}  # scratch seat for this test\n", encoding="utf-8")
+    return p
 
 
 def _script():
@@ -29,7 +45,7 @@ def test_every_committed_receipt_prints_and_exits_0(path, capsys):
     assert m.main([str(path)]) == 0
     out = capsys.readouterr().out
     body = json.loads(path.read_text(encoding="utf-8"))
-    assert "signature OK" in out and body["kind"] in out
+    assert "signature OK" in out and "known signer:" in out and body["kind"] in out
     if body["kind"] == "checkin":
         assert f"verdict: {body['verdict']['decision']}" in out
 
@@ -72,6 +88,17 @@ def test_trusted_key_pins_origin(capsys):
     assert "signature FAILED" in capsys.readouterr().out
 
 
+def test_forged_receipt_by_an_unknown_signer_exits_1(tmp_path, capsys):
+    m = _script()
+    forged, key = _forge(tmp_path, API_HOLD)
+    assert m.main([str(forged)]) == 1
+    out = capsys.readouterr().out
+    assert "✗ unknown signer" in out and "signature OK" not in out and "verdict:" not in out
+    assert m.main([str(forged), "--known-signers", str(_signers(tmp_path, key))]) == 0
+    assert m.main([str(forged), "--allow-unknown-signers"]) == 0
+    assert "unknown signer allowed (local use only)" in capsys.readouterr().out
+
+
 def test_redacted_machine_paths_is_shown(tmp_path, capsys):
     m = _script()
     sk = load_or_create_key(tmp_path / "keys")
@@ -79,7 +106,7 @@ def test_redacted_machine_paths_is_shown(tmp_path, capsys):
             "verdict": {"decision": "HOLD", "reasons": ["FIXTURE"]}}
     p = tmp_path / "r.json"
     p.write_text(json.dumps(sign_receipt(body, sk)), encoding="utf-8")
-    assert m.main([str(p)]) == 0
+    assert m.main([str(p), "--known-signers", str(_signers(tmp_path, public_key_hex(sk)))]) == 0
     assert "redacted_machine_paths: 1" in capsys.readouterr().out
 
 

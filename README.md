@@ -95,6 +95,22 @@ MODEL_API_KEY=... python scripts/maqueta.py --load camera:0 --doc camera:0 --voi
 `--load` / `--doc` also take a JPEG or PNG file. A camera that cannot be opened or returns no frame is exit 3,
 written in `ACTA.md`, with no receipt and never a placeholder image.
 
+## Pull the plug: the same check-in with and without the API
+
+`scripts/pull_the_plug.py` runs the check-in twice on the same three inputs: `--mode api`, then `--mode auto` with
+`TINYTMS_META_BASE_URL` pointed at a closed port on 127.0.0.1 for that run only, so paper and photo fall back to the
+local model and voice is `NO_MODEL`. It prints both runs side by side (per witness: status, provider, model, seconds,
+fallback reason; verdict and reasons; both receipt files), read back from the two signed receipts.
+`scripts/receipt_show.py` shows any receipt on one screen. Both refuse a receipt whose signature fails or whose signer
+is not in `keys/known_signers.txt` (`--allow-unknown-signers` is for local use only).
+
+```bash
+MODEL_API_KEY=... python scripts/pull_the_plug.py --load <photo> --doc <document photo> --voice <wav>
+python scripts/receipt_show.py receipts/<file>.json
+```
+
+Both runs write new receipts to `receipts/`; refresh the index afterwards with `python scripts/receipts_index.py`.
+
 ## Explicación al chofer (driver explanation)
 
 `tinytms/explain.py`, `--explain api|none|local` (default `none`), `--lang es|en` (default `es`).
