@@ -1,4 +1,6 @@
-keys/
+# private keys stay out; only the public allowlist of signers is tracked
+keys/*
+!keys/known_signers.txt
 __pycache__/
 *.pyc
 .pytest_cache/

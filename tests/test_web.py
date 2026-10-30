@@ -224,12 +224,20 @@ def test_not_multipart_and_too_large(tmp_path):
 
 
 @pytest.mark.parametrize("name", ["..%2Fkeys%2Fed25519.key", "../keys/ed25519.key", "..json", "a..b.json",
-                                  "x.key", "sub/x.json", "nope.json", "%2e%2e.json", ""])
+                                  "x.key", "sub/x.json", "nope.json", "%2e%2e.json"])
 def test_receipt_route_refuses_unsafe_or_missing_names(app, tmp_path, name):
     (tmp_path / "keys").mkdir()
     (tmp_path / "keys" / "ed25519.key").write_text("FIXTURE-secret")
     status, _, body = call(app, "GET", "/receipts/" + name)
     assert status == "404 Not Found" and b"FIXTURE-secret" not in body
+
+
+def test_receipts_index_page_is_not_a_way_out_of_receipts(app, tmp_path):
+    # "/receipts/" (empty name) used to be a 404; it is now the index (ORDEN nube-1). It lists receipts only.
+    (tmp_path / "keys").mkdir()
+    (tmp_path / "keys" / "ed25519.key").write_text("FIXTURE-secret")
+    status, _, body = call(app, "GET", "/receipts/")
+    assert status == "200 OK" and b"FIXTURE-secret" not in body and b"ed25519" not in body
 
 
 def test_unknown_path_404(app):
