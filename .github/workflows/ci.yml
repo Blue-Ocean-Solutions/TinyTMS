@@ -22,3 +22,7 @@ jobs:
         run: pytest -q tests/test_readme_numbers.py
       - name: Docs numbers guard (README.md and docs/*.md must cite an existing receipts/ file)
         run: python scripts/check_docs_numbers.py
+      - name: Measured table is not stale (docs/MEASURED.md regenerated from receipts/)
+        run: |
+          python scripts/receipts_table.py --out "$RUNNER_TEMP/MEASURED.md"
+          diff -u docs/MEASURED.md "$RUNNER_TEMP/MEASURED.md"
