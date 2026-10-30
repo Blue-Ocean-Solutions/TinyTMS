@@ -155,6 +155,9 @@ TINYTMS_LOCAL_PYTHON=/path/to/mlx-venv/bin/python python -m tinytms.cli checkin 
 
 ## What is measured
 
+Every signed receipt is listed in `receipts/INDEX.md` (also `GET /receipts/` on the web page): kind, model, result,
+signature ✓/✗ and signer seat; CI fails if it is stale or a receipt is signed by a key not in `keys/known_signers.txt`.
+
 Every file in `receipts/` is one row of [docs/MEASURED.md](docs/MEASURED.md): UTC, kind, model and provider, HTTP
 status, seconds, verdict or fields read, signing key and a link to the receipt. `python scripts/receipts_table.py`
 writes it from the receipts alone, checks each signature with the public key the receipt carries, and lists what
