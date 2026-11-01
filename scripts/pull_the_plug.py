@@ -36,7 +36,7 @@ from receipt_show import KNOWN_SIGNERS, WITNESSES, check, fields, seconds  # noq
 sys.path.insert(0, str(REPO))
 from tinytms.receipts_index import load_known_signers  # noqa: E402
 from tinytms.verify import DEFAULT_MAX_WEIGHT_KG  # noqa: E402
-from tinytms.cli import ArgumentParser  # noqa: E402  (a bad argument exits 3, as in the CLI)
+from tinytms.exit_codes import ArgumentParser  # noqa: E402  (a bad argument exits 3, as in the CLI)
 
 
 def closed_local_url() -> str:

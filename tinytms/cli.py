@@ -13,17 +13,9 @@ import sys
 from .pipeline import EXPLAIN_MODES, MODES, CheckinResult, InputError, run_checkin
 from .verify import DEFAULT_MAX_WEIGHT_KG
 from .witness import DocWitness, VoiceWitness
+from .exit_codes import EXIT_ACCEPT, EXIT_ERROR, EXIT_HOLD, ArgumentParser  # noqa: F401  (web.py and maqueta.py import them from here)
 
-EXIT_ACCEPT, EXIT_HOLD, EXIT_ERROR = 0, 2, 3
 RECEIPTS_DIR, FIXTURE_RECEIPTS_DIR = "receipts", "receipts-local"
-
-
-class ArgumentParser(argparse.ArgumentParser):
-    """argparse with this CLI's exit contract: a bad argument is an operational error (3), never HOLD's 2."""
-
-    def error(self, message: str):  # type: ignore[override]
-        self.print_usage(sys.stderr)
-        self.exit(EXIT_ERROR, f"{self.prog}: error: {message}\n")
 
 
 def default_receipts_dir(mode: str) -> str:

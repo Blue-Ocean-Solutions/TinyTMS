@@ -7,6 +7,8 @@ one test that points both runs at closed ports on 127.0.0.1 to exercise the tran
 
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -156,3 +158,20 @@ def test_help_is_still_exit_0():
     with pytest.raises(SystemExit) as e:
         _script().main(["--help"])
     assert e.value.code == 0
+
+
+def test_an_unknown_flag_next_to_valid_ones_is_exit_3(tmp_path):
+    # With the three inputs present only the unknown flag is wrong: a parser that ignored it would go on to run.
+    with pytest.raises(SystemExit) as e:
+        _script().main([*INPUTS, "--unreachable-url", "http://127.0.0.1:9/v1",
+                        "--known-signers", str(tmp_path / "none.txt"), "--nada"])
+    assert e.value.code == 3
+
+
+def test_a_malformed_model_setting_does_not_change_the_exit_code():
+    # The parent only parses arguments and reads receipts; model settings are read by each child run.
+    env = {k: v for k, v in os.environ.items() if k != "MODEL_API_KEY"}
+    env["TINYTMS_SPARK_MAX_OUTPUT_TOKENS"] = ""
+    p = subprocess.run([sys.executable, str(ROOT / "scripts" / "pull_the_plug.py"), "--nada"],
+                       env=env, capture_output=True, text=True, timeout=60)
+    assert p.returncode == 3, p.stderr[-800:]
