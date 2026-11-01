@@ -220,7 +220,7 @@ No performance figure (latency, throughput, accuracy) appears here unless it lin
 produced by a command that is written down, with its date. `tests/test_readme_numbers.py` fails CI if this
 README quotes a time, frame rate, percentage or token rate on a line without a `receipts/` link.
 
-First receipt (2026-10-28, `mlx_vlm` 0.7.10), `receipts/local-vlm-20261028T152737Z.json`: on a Mac the receipt records only as `arm64` with macOS 27.2 (no chip or memory data), Muse Glimmer 30B 4-bit loads in 1.2 s (1.8 s counting the worker's start) and generates at 30 tok/s on the receipt's input `evals/public/boxes-pallet.jpg` (1,242 prompt tokens, 128 generated, peak 20.7 GB); the receipt's command is `python scripts/measure_local_vlm.py --image evals/public/boxes-pallet.jpg`.
+First receipt (2026-10-28, `mlx_vlm` 0.7.10), `receipts/local-vlm-20261028T152737Z.json`: on a Mac (the receipt records only `arm64` and macOS 27.2, no chip or memory data), Muse Glimmer 30B 4-bit loads in 1.2 s (1.8 s counting the worker's start) and generates at 30 tok/s on the receipt's input `evals/public/boxes-pallet.jpg` (1,242 prompt tokens, 128 generated, peak 20.7 GB); the receipt's command is `python scripts/measure_local_vlm.py --image evals/public/boxes-pallet.jpg`.
 The model's sentence is in the receipt; it stopped at the 128-token cap ("…beside a stack of") before naming the boxes.
 One run on one image is a measurement, not a benchmark.
 
