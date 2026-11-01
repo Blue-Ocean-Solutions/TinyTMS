@@ -166,7 +166,7 @@ Both runs write new receipts to `receipts/`; refresh the index afterwards with `
 
 ```bash
 TINYTMS_LOCAL_PYTHON=/path/to/mlx-venv/bin/python python -m tinytms.cli checkin --mode local \
-  --load evals/public/boxes-pallet.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/es-doce-pallets-16k.wav
+  --load evals/public/boxes-moving.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/silencio_16k.wav
 ```
 
 ## What is measured
@@ -190,6 +190,9 @@ back to "MX", so it HOLDs on `SEAL_MISMATCH`). Every API call is also logged to 
 once that lane's own records reach its cap. Keys: `a100b16dfd814a49` is the day-2 API lane,
 `37f9717d0627af51` the day-3 lane (Spanish voice note, explanations, explained check-ins), `50be0cedb34ab0b9` the
 measuring seat on the Mac.
+Of the 39 calls in the ledger `receipts/llamadas.json`, 32 have a published receipt. The other 7 are the first
+`scripts/live_eval.py` run (2026-10-28, 15:23–15:24 UTC): they were signed on the Mac, but those receipts carry local
+machine paths, so they are not published.
 
 ## Numbers policy
 
@@ -197,8 +200,8 @@ No performance figure (latency, throughput, accuracy) appears here unless it lin
 produced by a command that is written down, with its date. `tests/test_readme_numbers.py` fails CI if this
 README quotes a time, frame rate, percentage or token rate on a line without a `receipts/` link.
 
-First receipt (2026-10-28, Apple M5 Max, 128 GB unified memory, `mlx_vlm` 0.7.10), `receipts/local-vlm-20261028T152737Z.json`: Muse Glimmer 30B 4-bit loads in 1.2 s from a warm cache and generates at 30 tok/s on `evals/public/boxes-pallet.jpg` (1,242 prompt tokens, 128 generated, peak 20.7 GB), command `python scripts/measure_local_vlm.py --image evals/public/boxes-pallet.jpg`.
-The model's sentence is in the receipt; it describes the door and the boxes and invents nothing.
+First receipt (2026-10-28, `mlx_vlm` 0.7.10), `receipts/local-vlm-20261028T152737Z.json`: on a Mac the receipt records only as `arm64` with macOS 27.2 (no chip or memory data), Muse Glimmer 30B 4-bit loads in 1.2 s (1.8 s counting the worker's start) and generates at 30 tok/s on the receipt's input `evals/public/boxes-pallet.jpg` (1,242 prompt tokens, 128 generated, peak 20.7 GB); the receipt's command is `python scripts/measure_local_vlm.py --image evals/public/boxes-pallet.jpg`.
+The model's sentence is in the receipt; it stopped at the 128-token cap ("…beside a stack of") before naming the boxes.
 One run on one image is a measurement, not a benchmark.
 
 The local receipts in this repo are signed by the measuring seat's key, public half
@@ -209,9 +212,11 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
 ## What is NOT here (yet)
 
 - `fixtures/` are hand-written and labelled FIXTURE in file name and content. They are not model outputs.
-- The `evals/` media are a handful of test inputs: two public photos, one synthetic Carta de Porte, one second
-  of silence and one SYNTHETIC-TTS Spanish voice note (macOS voice, not a person). They are not an accuracy
-  benchmark. There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
+- The `evals/` media are a handful of test inputs: two public photos (`boxes-pallet.jpg` stays only as the input of
+  the 2026-10-28 receipts, see `evals/public/PROCEDENCIA.md`), one synthetic Carta de Porte and one second of silence.
+  They are not an accuracy benchmark. The SYNTHETIC-TTS Spanish voice note (macOS voice, not a person) behind the
+  three real transcripts was withdrawn for its license (`evals/PROCEDENCIA.md`); its receipts and transcripts stay.
+  There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
   Beyond those it is tested on a hand-written SYNTHETIC corpus of 62 cases (`tests/data/voice-es-variantes.json`: number words,
   "docena", spelled letters, "guión"/"raya", seals said as one number) and on generated number words. When the
   driver corrects a count ("doce… no, trece"), gives two ("doce o trece"), hedges ("unas doce"), negates it or says

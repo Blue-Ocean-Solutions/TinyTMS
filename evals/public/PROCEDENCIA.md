@@ -9,3 +9,6 @@ local-model measurement receipts. Checksums in `SHA256SUMS` (`shasum -a 256 -c S
 | `boxes-moving.jpg` | [File:An Overview of Moving Companies and Their Use of Moving Boxes.jpg](https://commons.wikimedia.org/wiki/File:An_Overview_of_Moving_Companies_and_Their_Use_of_Moving_Boxes.jpg) (1280 px) | brownpau, via [Flickr](https://www.flickr.com/photos/brownpau/3955056653/) | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) |
 
 Attribution for `boxes-moving.jpg`: photo by brownpau, CC BY 2.0, unmodified except for the Commons 1280 px rendition.
+
+`boxes-pallet.jpg` is not used in the demo or in new commands because of its provenance. It stays here as the
+input of the receipts made with it on 2026-10-28; new commands use `boxes-moving.jpg`.

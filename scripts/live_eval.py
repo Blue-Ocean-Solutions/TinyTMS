@@ -5,10 +5,14 @@ Needs MODEL_API_KEY in the environment (never on the command line). Without it: 
     python scripts/live_eval.py [--evals evals] [--keys-dir keys-lane2] [--save-test-data tests/data] [--only sam,spark,voice,voice-es]
 
 Cases (evals/PROCEDENCIA.md):
-  SAM 3.1    evals/public/boxes-moving.jpg, evals/public/boxes-pallet.jpg  x  concepts "cardboard box", "pallet"
+  SAM 3.1    evals/public/boxes-moving.jpg  x  concepts "cardboard box", "pallet"
   Spark 1.3  evals/doc/carta_sintetica.png -> JSON fields
   Voice      evals/voice/silencio_16k.wav  -> empty transcript expected            (case voice)
-  Voice      evals/voice/es-doce-pallets-16k.wav -> SYNTHETIC-TTS Spanish note     (case voice-es)
+  Voice      evals/voice/es-*.wav          -> a Spanish voice note, if there is one  (case voice-es)
+
+boxes-pallet.jpg is no longer a case: it stays in evals/public/ only as the input of the 2026-10-28 receipts
+(evals/public/PROCEDENCIA.md). The SYNTHETIC-TTS Spanish note was withdrawn for its license (evals/PROCEDENCIA.md);
+with no evals/voice/es-*.wav the voice-es case is skipped and the script says so.
 
 Each receipt holds model, provider meta-api, utc, seconds, sha256 of the input (original file), the request
 WITHOUT base64 and the raw answer truncated to 2,000 chars with SAM mask data removed. Every call is also
@@ -39,11 +43,13 @@ from tinytms.meta_api import KEY_ENV, ApiResult, MetaClient, NoKey  # noqa: E402
 from tinytms.receipt import load_or_create_key, sign_receipt, write_receipt  # noqa: E402
 from tinytms.witness import DocWitness, VisionWitness, VoiceWitness, sha256_file  # noqa: E402
 
-SAM_IMAGES = ("public/boxes-moving.jpg", "public/boxes-pallet.jpg")
+SAM_IMAGES = ("public/boxes-moving.jpg",)
 SAM_CONCEPTS = ("cardboard box", "pallet")
 DOC = "doc/carta_sintetica.png"
-# case -> (file, tag in receipt/test-data names; the silence case keeps its original untagged names)
-VOICES = {"voice": ("voice/silencio_16k.wav", ""), "voice-es": ("voice/es-doce-pallets-16k.wav", "es-doce-pallets-16k-")}
+VOICE = "voice/silencio_16k.wav"  # case voice keeps its original untagged receipt and test-data names
+VOICE_ES = "voice/es-*.wav"  # case voice-es: tagged with the note's own name
+
+Job = tuple[str, Path, str, str]  # kind, input, SAM concept, name tag
 
 
 def _slug(s: str) -> str:
@@ -52,6 +58,26 @@ def _slug(s: str) -> str:
 
 def _stamp(utc: str) -> str:
     return utc.replace("-", "").replace(":", "").replace(".", "")[:15] + "Z" if utc else "nodate"
+
+
+def plan(root: Path, only: set[str]) -> tuple[list[Job], list[str]]:
+    """The calls to make for the selected cases, and a line for each case skipped because its input is absent."""
+    jobs: list[Job] = []
+    skipped: list[str] = []
+    if "sam" in only:
+        jobs += [("sam", root / img, c, f"{_slug(Path(img).stem)}-{_slug(c)}-")
+                 for img in SAM_IMAGES for c in SAM_CONCEPTS]
+    if "spark" in only:
+        jobs.append(("spark", root / DOC, "", ""))
+    if "voice" in only:
+        jobs.append(("voice", root / VOICE, "", ""))
+    if "voice-es" in only:
+        notes = sorted(root.glob(VOICE_ES))
+        jobs += [("voice", n, "", f"{_slug(n.stem)}-") for n in notes]
+        if not notes:
+            skipped.append(f"voice-es: skipped, no Spanish voice note in {root / Path(VOICE_ES).parent} "
+                           "(the SYNTHETIC-TTS one was withdrawn for its license, see evals/PROCEDENCIA.md)")
+    return jobs, skipped
 
 
 def _witness(kind: str, r: ApiResult, sha: str, concept: str = "") -> VisionWitness | DocWitness | VoiceWitness:
@@ -86,16 +112,9 @@ def main() -> int:
         print(f"NO_MODEL: {KEY_ENV} is not set; live eval needs a real key. Nothing was run.", file=sys.stderr)
         return 3
 
-    root = Path(a.evals)
-    only = set(a.only.split(","))
-    jobs: list[tuple[str, Path, str, str]] = []  # kind, input, SAM concept, name tag
-    if "sam" in only:
-        jobs += [("sam", root / img, c, f"{_slug(Path(img).stem)}-{_slug(c)}-") for img in SAM_IMAGES for c in SAM_CONCEPTS]
-    if "spark" in only:
-        jobs.append(("spark", root / DOC, "", ""))
-    for case, (rel, tag) in VOICES.items():
-        if case in only:
-            jobs.append(("voice", root / rel, "", tag))
+    jobs, skipped = plan(Path(a.evals), set(a.only.split(",")))
+    for line in skipped:
+        print(line)
 
     sk = load_or_create_key(a.keys_dir)
     # Receipts are public: record the command relative to the repo, never the machine's interpreter or paths.
