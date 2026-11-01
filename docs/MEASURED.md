@@ -11,7 +11,14 @@ recorded when it was signed; parsers have changed since (tests/test_real_data.py
 
 | UTC | kind | model (provider) | HTTP | seconds | result | key | receipt |
 |---|---|---|---|---|---|---|---|
+| 2026-10-28T15:25:21.470064Z | check-in · api | vision sam-3.1, doc muse-spark-1.3, voice muse-voice-transcribe-1.0 (meta-api) | vision 200 · doc 200 · voice 200 | vision 1.43 s · doc 2.129 s · voice 0.946 s | HOLD: VOICE_NO_COUNT, SEAL_MISSING voice | `a100b16dfd814a49` | [20261028T152521470064Z-HOLD.json](../receipts/20261028T152521470064Z-HOLD.json) |
 | 2026-10-28T15:27:46.090382Z | local VLM measure | muse-glimmer-30b-4bit (local-mlx), mlx_vlm 0.7.10 | — | load 1.168 s · run 6.214 s | OK: 30.07 tok/s, 1242 prompt + 128 generated tokens, peak 20.68 GB | `50be0cedb34ab0b9` | [local-vlm-20261028T152737Z.json](../receipts/local-vlm-20261028T152737Z.json) |
+| 2026-10-28T15:30:26.219625Z | live · sam | sam-3.1 (meta-api) | 200 | 1.412 s | count 4 (cardboard box) | `a100b16dfd814a49` | [live-sam-boxes-moving-cardboard-box-20261028T153026Z.json](../receipts/live-sam-boxes-moving-cardboard-box-20261028T153026Z.json) |
+| 2026-10-28T15:30:27.639908Z | live · sam | sam-3.1 (meta-api) | 200 | 1.992 s | count 0 (pallet) | `a100b16dfd814a49` | [live-sam-boxes-moving-pallet-20261028T153027Z.json](../receipts/live-sam-boxes-moving-pallet-20261028T153027Z.json) |
+| 2026-10-28T15:30:29.644078Z | live · sam | sam-3.1 (meta-api) | 200 | 1.003 s | count 22 (cardboard box) | `a100b16dfd814a49` | [live-sam-boxes-pallet-cardboard-box-20261028T153029Z.json](../receipts/live-sam-boxes-pallet-cardboard-box-20261028T153029Z.json) |
+| 2026-10-28T15:30:30.659673Z | live · sam | sam-3.1 (meta-api) | 200 | 0.943 s | count 1 (pallet) | `a100b16dfd814a49` | [live-sam-boxes-pallet-pallet-20261028T153030Z.json](../receipts/live-sam-boxes-pallet-pallet-20261028T153030Z.json) |
+| 2026-10-28T15:30:31.611206Z | live · spark | muse-spark-1.3 (meta-api) | 200 | 3.135 s | pieces 12, 4800 kg, seal MX-48213, hazmat false | `a100b16dfd814a49` | [live-spark-20261028T153031Z.json](../receipts/live-spark-20261028T153031Z.json) |
+| 2026-10-28T15:30:34.748261Z | live · voice | muse-voice-transcribe-1.0 (meta-api) | 200 | 1.047 s | count —, seal — (empty transcript) | `a100b16dfd814a49` | [live-voice-20261028T153034Z.json](../receipts/live-voice-20261028T153034Z.json) |
 | 2026-10-28T15:30:41.947742Z | check-in · api | vision sam-3.1, doc muse-spark-1.3, voice muse-voice-transcribe-1.0 (meta-api) | vision 200 · doc 200 · voice 200 | vision 1.545 s · doc 2.552 s · voice 1.211 s | HOLD: VOICE_NO_COUNT, COUNT_MISMATCH doc=12 vision=1, SEAL_MISSING voice | `a100b16dfd814a49` | [20261028T153041947742Z-HOLD.json](../receipts/20261028T153041947742Z-HOLD.json) |
 | 2026-10-28T15:32:08.596778Z | live · sam | sam-3.1 (meta-api) | 200 | 1.113 s | count 4 (cardboard box) | `a100b16dfd814a49` | [live-sam-boxes-moving-cardboard-box-20261028T153208Z.json](../receipts/live-sam-boxes-moving-cardboard-box-20261028T153208Z.json) |
 | 2026-10-28T15:32:09.724034Z | live · sam | sam-3.1 (meta-api) | 200 | 0.664 s | count 0 (pallet) | `a100b16dfd814a49` | [live-sam-boxes-moving-pallet-20261028T153209Z.json](../receipts/live-sam-boxes-moving-pallet-20261028T153209Z.json) |
@@ -33,7 +40,7 @@ recorded when it was signed; parsers have changed since (tests/test_real_data.py
 
 - `37f9717d0627af51` (day-3 API lane: Spanish voice note, explanations, explained check-ins): 8 receipts
 - `50be0cedb34ab0b9` (measuring seat: the local Glimmer receipts): 2 receipts
-- `a100b16dfd814a49` (day-2 API lane: live witnesses and the first API check-in): 7 receipts
+- `a100b16dfd814a49` (day-2 API lane: live witnesses and the first API check-in): 14 receipts
 
 ## Not verified
 
