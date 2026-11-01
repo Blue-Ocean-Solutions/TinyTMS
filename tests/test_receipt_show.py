@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -9,7 +10,19 @@ import pytest
 from tinytms.receipt import MACHINE_PATH_PREFIXES, load_or_create_key, public_key_hex, sign_receipt
 
 ROOT = Path(__file__).resolve().parent.parent
-RECEIPTS = sorted(p for p in (ROOT / "receipts").glob("*.json") if p.name != "llamadas.json")
+
+
+def committed_receipts() -> list[Path]:
+    """The receipts git tracks: a local run's new file in receipts/ is not part of the evidence under test."""
+    try:
+        out = subprocess.run(["git", "ls-files", "receipts/*.json"], cwd=ROOT, capture_output=True, text=True,
+                             check=True, timeout=60).stdout.split()
+    except (OSError, subprocess.CalledProcessError):
+        return sorted((ROOT / "receipts").glob("*.json"))
+    return sorted(ROOT / name for name in out)
+
+
+RECEIPTS = [p for p in committed_receipts() if p.name != "llamadas.json"]
 LOCAL_HOLD = ROOT / "receipts" / "20261028T165434299357Z-HOLD.json"
 API_HOLD = ROOT / "receipts" / "20261028T153041947742Z-HOLD.json"
 SEAT_KEY = "50be0cedb34ab0b93023708d5059408480839afad77d8ef7889ef3b5f53fbb9c"

@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -38,6 +39,22 @@ TEST_SK = SigningKey(bytes(range(32)))  # a test seat: its receipts verify only 
 TEST_KNOWN = {TEST_SK.verify_key.encode().hex(): "test seat"}
 
 
+@pytest.fixture(scope="module")
+def committed(tmp_path_factory) -> Path:
+    """A copy of the receipts git tracks (git ls-files): a local run's new receipt in the working tree must not
+    make the committed table look stale, nor be counted as evidence."""
+    try:
+        names = subprocess.run(["git", "ls-files", "receipts/*.json"], cwd=REPO, capture_output=True, text=True,
+                               check=True, timeout=60).stdout.split()
+    except (OSError, subprocess.CalledProcessError):
+        names = [f"receipts/{p.name}" for p in RECEIPTS.glob("*.json")]
+    d = tmp_path_factory.mktemp("committed") / "receipts"
+    d.mkdir()
+    for name in names:
+        shutil.copy(REPO / name, d / Path(name).name)
+    return d
+
+
 def _signed(tmp: Path, name: str, body: dict) -> Path:
     p = tmp / name
     p.write_bytes(canonical_json(sign_receipt(body, TEST_SK)) + b"\n")
@@ -49,21 +66,21 @@ def _live_body(utc: str, s: float = 0.5) -> dict:
             "s": s, "utc": utc, "result": {"status": "OK", "count": 3, "concept": "pallet"}}
 
 
-def test_committed_table_is_not_stale():
-    """The anti-stale check CI runs: regenerate from receipts/ and compare byte for byte."""
+def test_committed_table_is_not_stale(committed):
+    """The anti-stale check CI runs: regenerate from the committed receipts and compare byte for byte."""
     assert MEASURED.is_file(), "docs/MEASURED.md missing: run python scripts/receipts_table.py"
-    assert MEASURED.read_text(encoding="utf-8") == table.render(RECEIPTS), \
+    assert MEASURED.read_text(encoding="utf-8") == table.render(committed), \
         "docs/MEASURED.md is stale: run python scripts/receipts_table.py"
 
 
-def test_every_repo_receipt_is_listed_exactly_once():
-    text = table.render(RECEIPTS)
-    for p in sorted(RECEIPTS.glob("*.json")):
+def test_every_repo_receipt_is_listed_exactly_once(committed):
+    text = table.render(committed)
+    for p in sorted(committed.glob("*.json")):
         assert text.count(f"](../receipts/{p.name})") == 1, p.name
-    rows = table.collect(RECEIPTS)
-    assert {r.name for r in rows} == {p.name for p in RECEIPTS.glob("*.json")}
+    rows = table.collect(committed)
+    assert {r.name for r in rows} == {p.name for p in committed.glob("*.json")}
     for r in rows:  # verified means what verify_receipt says, with the receipt's own key
-        assert r.verified == verify_receipt((RECEIPTS / r.name).read_bytes()), r.name
+        assert r.verified == verify_receipt((committed / r.name).read_bytes()), r.name
     assert [r.name for r in rows if not r.verified] == ["llamadas.json"]  # the call ledger is not signed
 
 
@@ -106,13 +123,13 @@ def test_output_is_byte_identical_and_sorted_by_utc(tmp_path):
     assert first.index("live-1.json") < first.index("live-2.json") < first.index("live-3.json")
 
 
-def test_generated_table_passes_the_docs_numbers_guard():
-    text = table.render(RECEIPTS)
+def test_generated_table_passes_the_docs_numbers_guard(committed):
+    text = table.render(committed)
     assert docs_guard.problems(text, REPO) == []
     assert any(docs_guard.SECONDS.search(line) for line in text.splitlines()), "expected timings in the table"
 
 
-def test_a_machine_path_cannot_reach_a_receipt_or_the_table(tmp_path):
+def test_a_machine_path_cannot_reach_a_receipt_or_the_table(tmp_path, committed):
     """The existing guard still holds: sign_receipt redacts machine paths (and counts them) before signing."""
     body = {**_live_body("2026-10-28T10:00:00.000000Z"), "command": "python /Users/someone/x.py --out /tmp/y"}
     p = _signed(tmp_path, "live-path.json", body)
@@ -121,7 +138,7 @@ def test_a_machine_path_cannot_reach_a_receipt_or_the_table(tmp_path):
     assert verify_receipt(p.read_bytes())
     text = table.render(tmp_path, TEST_KNOWN)
     assert "/Users/" not in text and "/tmp/" not in text
-    assert find_machine_paths(table.render(RECEIPTS)) == []
+    assert find_machine_paths(table.render(committed)) == []
 
 
 def test_check_mode_fails_on_a_stale_file(tmp_path):

@@ -175,7 +175,7 @@ def test_real_run_needs_mode(tmp_path):
     with pytest.raises(SystemExit) as e:
         run(tmp_path, "--load", str(a / "load.FIXTURE.png"), "--doc", str(a / "doc.FIXTURE.png"),
             "--voice", str(a / "voice.FIXTURE.wav"))
-    assert e.value.code != 0
+    assert e.value.code == 3  # a bad command line is an operational error, never the HOLD code 2
 
 
 def test_never_overwrites_an_acta(tmp_path):

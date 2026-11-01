@@ -130,3 +130,58 @@ def test_local_mode_without_cached_model_holds(tmp_path):
     assert r["verdict"]["reasons"] == ["NO_MODEL:vision", "NO_MODEL:doc", "NO_MODEL:voice"]
     assert "not in local cache" in r["witnesses"]["vision"]["detail"]
     assert find_machine_paths(r) == []  # the receipt describes the run, never this machine
+
+
+# --- the judge's path through the README (ORDEN N2, 2026-11-01) ---
+
+
+def run_in(cwd, *args):
+    """The CLI as the README runs it: from a working directory, no --receipts-dir."""
+    import os
+
+    env = {k: v for k, v in os.environ.items() if k != "MODEL_API_KEY"}
+    cmd = [sys.executable, "-m", "tinytms.cli", *args]
+    return subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, timeout=120)
+
+
+def test_fixture_receipts_go_to_receipts_local_by_default(tmp_path):
+    # README "Run" step 1, twice: FIXTURE receipts must never land in receipts/ (real runs only, all signed by a
+    # known seat); before this they dirtied the clone and five tests plus receipts_index --check failed.
+    for case, rc in (("accept", 0), ("count_mismatch", 2)):
+        p = run_in(tmp_path, "checkin", "--mode", "fixture", "--fixture-dir", str(FIX / case),
+                   "--keys-dir", str(tmp_path / "keys"))
+        assert p.returncode == rc, p.stdout + p.stderr
+    assert not (tmp_path / "receipts").exists()
+    assert sorted(f.name.split("-", 1)[1] for f in (tmp_path / "receipts-local").glob("*.json")) == \
+        ["ACCEPT-FIXTURE.json", "HOLD-FIXTURE.json"]
+
+
+def test_real_modes_still_write_to_receipts_by_default(tmp_path):
+    a = FIX / "accept"
+    p = run_in(tmp_path, "checkin", "--mode", "api", "--load", str(a / "load.FIXTURE.png"), "--doc",
+               str(a / "doc.FIXTURE.png"), "--voice", str(a / "voice.FIXTURE.wav"), "--keys-dir", str(tmp_path / "k"))
+    assert p.returncode == 2 and "NO_MODEL:vision" in p.stdout, p.stdout + p.stderr
+    assert len(list((tmp_path / "receipts").glob("*-HOLD.json"))) == 1
+    assert not (tmp_path / "receipts-local").exists()
+
+
+@pytest.mark.parametrize("args", [
+    ("checkin", "--mode", "bogus"),  # a choice that does not exist
+    ("checkin",),  # --mode is required
+    ("checkin", "--mode", "fixture", "--max-weight-kg", "heavy"),  # not a number
+    ("nonsense",),  # no such command
+    (),  # no command at all
+])
+def test_a_bad_argument_is_exit_3_not_the_hold_code(tmp_path, args):
+    # README: 0 ACCEPT, 2 HOLD, 3 operational error (missing file, bad arguments). argparse's own exit is 2,
+    # which a script reading the exit code would take for a HOLD.
+    p = run_in(tmp_path, *args)
+    assert p.returncode == 3, p.stdout + p.stderr
+    assert "usage:" in p.stderr and "error:" in p.stderr
+    assert not (tmp_path / "receipts").exists() and not (tmp_path / "receipts-local").exists()
+
+
+def test_help_still_exits_0(tmp_path):
+    for args in (("--help",), ("checkin", "--help")):
+        p = run_in(tmp_path, *args)
+        assert p.returncode == 0 and "usage:" in p.stdout, p.stdout + p.stderr

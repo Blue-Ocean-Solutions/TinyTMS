@@ -31,16 +31,20 @@ The private key lives in `keys/` (git-ignored, mode 0600) and is never printed.
 
 ## Run
 
+Requires Python 3.12+.
+
 ```bash
+python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest -q
 
-# 1. fixture mode: hand-written witnesses, no model involved (receipt says FIXTURE)
+# 1. fixture mode: hand-written witnesses, no model involved (receipt says FIXTURE). Its receipts go to
+#    receipts-local/ (git-ignored): receipts/ holds real runs only, each signed by a seat in keys/known_signers.txt
 python -m tinytms.cli checkin --mode fixture --fixture-dir fixtures/accept          # ACCEPT, exit 0
 python -m tinytms.cli checkin --mode fixture --fixture-dir fixtures/count_mismatch  # HOLD, exit 2
 
 # 2. api mode: Meta Model API, key from the environment only
-MODEL_API_KEY=... python -m tinytms.cli checkin --mode api --load load.jpg --doc bol.jpg --voice note.wav
+MODEL_API_KEY=... python -m tinytms.cli checkin --mode api --load evals/public/boxes-moving.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/silencio_16k.wav
 #    voice must be a RIFF WAV (converted to mono 16 kHz PCM16 if needed); every call is logged to receipts/llamadas.json
 #    without MODEL_API_KEY: HOLD with NO_MODEL:vision / NO_MODEL:doc / NO_MODEL:voice, exit 2
 
@@ -53,18 +57,32 @@ python -m tinytms.cli checkin --mode auto --load ... --doc ... --voice ...
 # on HOLD, explain it to the driver (Muse Spark 1.3, text only; the verdict does not change)
 python -m tinytms.cli checkin --mode api --explain api --lang es --load ... --doc ... --voice ...
 
-# the same pipeline behind one web page (stdlib wsgiref, binds 127.0.0.1)
+# the same pipeline behind one web page (stdlib wsgiref, binds 127.0.0.1); FIXTURE check-ins from the page
+# go to receipts-local/ (--fixture-receipts-dir), real ones to --receipts-dir
 python -m tinytms.web --port 8765 --receipts-dir receipts
 ```
 
-Exit codes: `0` ACCEPT, `2` HOLD, `3` operational error (missing file, bad arguments).
+Exit codes: `0` ACCEPT, `2` HOLD, `3` operational error (missing file, bad arguments); `--help` is `0`.
 
-Verify a receipt:
+Verify a receipt. One screen, signature and signer checked first (exit `1` if either fails):
+
+```bash
+python scripts/receipt_show.py receipts/<file>.json
+```
+
+Or in Python, pinning origin to the seats in `keys/known_signers.txt` (`True` for every committed receipt, `False`
+for the same body signed by any other key):
 
 ```python
+import json
 from tinytms.receipt import verify_receipt
-verify_receipt(open("receipts/<file>.json", "rb").read(), trusted_public_key=open("keys/ed25519.pub").read().strip())
+from tinytms.receipts_index import load_known_signers
+raw = open("receipts/<file>.json", "rb").read()
+print(verify_receipt(raw) and json.loads(raw)["public_key"] in load_known_signers("keys/known_signers.txt"))
 ```
+
+`keys/ed25519.pub` is the public half of *your* local key, created by your first check-in and git-ignored: it
+verifies only the receipts you signed yourself, never the committed ones.
 
 Local models run in a separate worker process (`tinytms/_mlx_worker.py`) so an MLX import or load failure
 is reported as an explicit error instead of taking the CLI down. `TINYTMS_LOCAL_PYTHON` selects the
@@ -109,7 +127,9 @@ MODEL_API_KEY=... python scripts/pull_the_plug.py --load <photo> --doc <document
 python scripts/receipt_show.py receipts/<file>.json
 ```
 
-Both runs write new receipts to `receipts/`; refresh the index afterwards with `python scripts/receipts_index.py`.
+Both runs write new receipts to `receipts/`. The index (`receipts/INDEX.md`) is refreshed only with real receipts:
+`python scripts/receipts_index.py` rewrites it and exits `1` on purpose while any receipt in the folder is signed by
+a key not in `keys/known_signers.txt` (your own local key included, until it is added there in its own commit).
 
 ## Explicación al chofer (driver explanation)
 

@@ -261,3 +261,35 @@ def test_html_escapes_model_text(tmp_path):
     body, ctype = multipart({"mode": "fixture", "fixture": "count_mismatch", "explain": "api"}, {})
     page = call(app, "POST", "/checkin", body, ctype)[2].decode()
     assert "<script>alert(1)</script>" not in page and "&lt;script&gt;" in page
+
+
+# --- the judge's path through the README (ORDEN N2, 2026-11-01) ---
+
+
+def test_fixture_receipts_from_the_page_go_to_their_own_folder(tmp_path):
+    # `python -m tinytms.web --receipts-dir receipts` (README): a FIXTURE check-in from the form must not land in
+    # receipts/, which holds real runs only; its link still serves it byte for byte.
+    app = make_app(tmp_path / "receipts", tmp_path / "keys", FIX, fixture_receipts_dir=tmp_path / "receipts-local")
+    body, ctype = multipart({"mode": "fixture", "fixture": "accept", "explain": "none", "lang": "es"}, {})
+    status, _, page = call(app, "POST", "/checkin", body, ctype)
+    assert status == "200 OK", page
+    assert not list((tmp_path / "receipts").glob("*.json"))
+    (rp,) = (tmp_path / "receipts-local").glob("*-ACCEPT-FIXTURE.json")
+    assert f'href="/receipts/{rp.name}"' in page.decode()
+    s, _, served = call(app, "GET", f"/receipts/{rp.name}")
+    assert s == "200 OK" and served == rp.read_bytes()
+    s, _, index = call(app, "GET", "/receipts/")
+    assert s == "200 OK" and rp.name not in index.decode()  # the index lists real receipts only
+
+
+def test_web_defaults_and_bad_arguments():
+    from tinytms import web
+
+    a = web.build_parser().parse_args([])
+    assert (a.receipts_dir, a.fixture_receipts_dir) == ("receipts", "receipts-local")
+    with pytest.raises(SystemExit) as e:
+        web.main(["--port", "not-a-port"])
+    assert e.value.code == 3  # an operational error, as in the CLI; never the HOLD code 2
+    with pytest.raises(SystemExit) as e:
+        web.main(["--help"])
+    assert e.value.code == 0
