@@ -9,3 +9,5 @@ __pycache__/
 keys-lane2/
 keys-lane3/
 maqueta/
+# FIXTURE check-ins (CLI and web, --mode fixture): rehearsals signed by a local key, never committed
+receipts-local/

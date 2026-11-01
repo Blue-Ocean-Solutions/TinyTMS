@@ -1,11 +1,14 @@
 """One-page web check-in (stdlib only: wsgiref, email for multipart, html, json).
 
-    python -m tinytms.web --port 8765 --receipts-dir receipts
+    python -m tinytms.web --port 8765 --receipts-dir receipts [--fixture-receipts-dir receipts-local]
 
 GET  /                      form: load photo, document photo, voice note, mode, explain, language
 POST /checkin               multipart -> the same pipeline as the CLI -> HTML with witnesses, verdict, receipt link
 GET  /receipts/             every receipt, verified, signer named (the same table as receipts/INDEX.md)
 GET  /receipts/<name>.json  the signed receipt (safe names only: [A-Za-z0-9._-]+, no "..")
+
+FIXTURE check-ins from the form are written to --fixture-receipts-dir (default receipts-local/, git-ignored), never
+to --receipts-dir, which holds real runs only. A bad command line exits 3, as in the CLI.
 
 Binds 127.0.0.1 by default. Uploads live in a temporary directory for the length of the request; the
 receipt keeps only each file's name and sha256.
@@ -24,6 +27,7 @@ from email.parser import BytesParser
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from .cli import FIXTURE_RECEIPTS_DIR, RECEIPTS_DIR, ArgumentParser
 from .pipeline import EXPLAIN_MODES, MODES, CheckinResult, ClientFactory, InputError, run_checkin
 from .receipt import redact_machine_paths
 from .receipts_index import build_rows, clean, load_known_signers, render_html_table
@@ -205,8 +209,11 @@ def make_app(
     allow_api: bool = False,
     allowed_hosts: Iterable[str] | None = None,
     known_signers: str | Path | None = None,
+    fixture_receipts_dir: str | Path | None = None,
 ) -> Callable[[dict[str, Any], StartResponse], list[bytes]]:
+    """fixture_receipts_dir: where FIXTURE check-ins are written (default: receipts_dir itself)."""
     rdir, fdir = Path(receipts_dir), Path(fixtures_dir)
+    frdir = Path(fixture_receipts_dir) if fixture_receipts_dir is not None else rdir
     signers = Path(known_signers) if known_signers is not None else Path(keys_dir) / "known_signers.txt"
     hosts = {h.lower() for h in (allowed_hosts if allowed_hosts is not None else LOOPBACK_HOSTS)}
 
@@ -266,7 +273,8 @@ def make_app(
                     else:
                         paths[f] = None
                 res = run_checkin(mode, load=paths["load"], doc=paths["doc"], voice=paths["voice"],
-                                  fixture_dir=fixture_dir, max_weight_kg=max_weight_kg, receipts_dir=rdir,
+                                  fixture_dir=fixture_dir, max_weight_kg=max_weight_kg,
+                                  receipts_dir=frdir if mode == "fixture" else rdir,
                                   keys_dir=keys_dir, calls_log=calls_log, explain=explain, lang=lang,
                                   client_factory=client_factory, origin="web")
         except InputError as e:
@@ -289,10 +297,11 @@ def make_app(
     def receipt(name: str, start: StartResponse) -> list[bytes]:
         if not SAFE_NAME.fullmatch(name) or ".." in name or not name.endswith(".json"):
             return error(start, "404 Not Found", "no such receipt")
-        p = rdir / name
-        if not p.is_file() or p.resolve().parent != rdir.resolve():
-            return error(start, "404 Not Found", "no such receipt")
-        return send(start, "200 OK", p.read_bytes(), "application/json; charset=utf-8")
+        for d in dict.fromkeys((rdir, frdir)):  # real receipts first, then this page's FIXTURE ones
+            p = d / name
+            if p.is_file() and p.resolve().parent == d.resolve():
+                return send(start, "200 OK", p.read_bytes(), "application/json; charset=utf-8")
+        return error(start, "404 Not Found", "no such receipt")
 
     def app(environ: dict[str, Any], start: StartResponse) -> list[bytes]:
         method, path = environ.get("REQUEST_METHOD", "GET"), environ.get("PATH_INFO", "/") or "/"
@@ -313,22 +322,28 @@ def make_app(
     return app
 
 
-def main(argv: list[str] | None = None) -> int:
-    from wsgiref.simple_server import make_server
-
-    ap = argparse.ArgumentParser(prog="tinytms.web")
+def build_parser() -> argparse.ArgumentParser:
+    ap = ArgumentParser(prog="tinytms.web")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
-    ap.add_argument("--receipts-dir", default="receipts")
+    ap.add_argument("--receipts-dir", default=RECEIPTS_DIR, help="real runs, the index and the API call ledger")
+    ap.add_argument("--fixture-receipts-dir", default=FIXTURE_RECEIPTS_DIR, help="FIXTURE check-ins (git-ignored)")
     ap.add_argument("--keys-dir", default=os.environ.get("TINYTMS_KEYS_DIR", "keys"))
     ap.add_argument("--fixtures-dir", default="fixtures")
     ap.add_argument("--calls-log", default=None)
     ap.add_argument("--max-weight-kg", type=float, default=DEFAULT_MAX_WEIGHT_KG)
     ap.add_argument("--allow-api", action="store_true",
                     help="let the page use the Meta Model API (modes api/auto, explain=api); off by default")
-    a = ap.parse_args(argv)
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:
+    from wsgiref.simple_server import make_server
+
+    a = build_parser().parse_args(argv)
     app = make_app(a.receipts_dir, a.keys_dir, a.fixtures_dir, a.calls_log, a.max_weight_kg,
-                   allow_api=a.allow_api, allowed_hosts=set(LOOPBACK_HOSTS) | {a.host.lower()})
+                   allow_api=a.allow_api, allowed_hosts=set(LOOPBACK_HOSTS) | {a.host.lower()},
+                   fixture_receipts_dir=a.fixture_receipts_dir)
     with make_server(a.host, a.port, app) as srv:
         print(f"tinyTMS web on http://{a.host}:{a.port}/  (Ctrl-C to stop)", file=sys.stderr)
         try:

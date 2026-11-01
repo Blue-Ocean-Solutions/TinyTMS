@@ -80,16 +80,17 @@ Every Meta Model API call made so far (model, UTC, HTTP status, seconds) is in `
 
 ## How to run it
 
-From a clone of <https://github.com/Blue-Ocean-Solutions/TinyTMS> with Python 3.12 or newer:
+From a clone of <https://github.com/Blue-Ocean-Solutions/TinyTMS>. Requires Python 3.12+.
 
 ```bash
+python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest -q
 python -m tinytms.cli checkin --mode fixture --fixture-dir fixtures/count_mismatch
 ```
 
-The last one prints HOLD with `COUNT_MISMATCH`, exits 2 and writes a signed receipt to `receipts/` (the inputs are
-hand-written fixtures, labelled FIXTURE in the receipt; no model, no key). With a Meta Model API key in
+The last one prints HOLD with `COUNT_MISMATCH`, exits 2 and writes a signed receipt to `receipts-local/`
+(git-ignored; the inputs are hand-written fixtures, labelled FIXTURE in the receipt; no model, no key). With a Meta Model API key in
 `MODEL_API_KEY`, `--mode api --load <photo> --doc <document photo> --voice <wav>` runs the real witnesses; the README
 has the local, auto, explain and web commands.
 

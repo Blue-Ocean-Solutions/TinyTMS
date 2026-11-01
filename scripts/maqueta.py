@@ -28,7 +28,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from tinytms import capture  # noqa: E402
-from tinytms.cli import EXIT_ACCEPT, EXIT_ERROR, EXIT_HOLD, report  # noqa: E402
+from tinytms.cli import EXIT_ACCEPT, EXIT_ERROR, EXIT_HOLD, ArgumentParser, report  # noqa: E402
 from tinytms.pipeline import EXPLAIN_MODES, FIXTURE_MEDIA, MODES, CheckinResult, InputError, run_checkin  # noqa: E402
 from tinytms.receipt import REDACTED, redact_machine_paths  # noqa: E402
 from tinytms.witness import sha256_bytes, sha256_file  # noqa: E402
@@ -171,7 +171,7 @@ def acta(t: dict[str, str], out: Path, *, mode: str, inputs: dict[str, dict[str,
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="maqueta", description=__doc__.split("\n")[0])
+    p = ArgumentParser(prog="maqueta", description=__doc__.split("\n")[0])  # a bad argument exits 3, as the CLI
     p.add_argument("--load", help="photo of the load: jpg|png|camera:N")
     p.add_argument("--doc", help="photo of the Carta de Porte / BOL: jpg|png|camera:N")
     p.add_argument("--voice", help="driver voice note (WAV)")
