@@ -142,3 +142,17 @@ def test_closed_local_url_is_loopback():
     m = _script()
     url = m.closed_local_url()
     assert url.startswith("http://127.0.0.1:") and url.endswith("/v1") and int(url.split(":")[2].split("/")[0]) > 0
+
+
+@pytest.mark.parametrize("args", [["--nada"], ["--load"], []])
+def test_a_bad_argument_is_exit_3_like_the_cli(args):
+    # The docstring promises 0, 1 or 3. argparse's own 2 is the CLI's HOLD code, never this script's.
+    with pytest.raises(SystemExit) as e:
+        _script().main(args)
+    assert e.value.code == 3
+
+
+def test_help_is_still_exit_0():
+    with pytest.raises(SystemExit) as e:
+        _script().main(["--help"])
+    assert e.value.code == 0

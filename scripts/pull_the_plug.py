@@ -14,7 +14,7 @@ attempts at the closed port are logged there too, as transport failures.
 Nothing is faked. Without a Meta key both runs lose the API to NoKey; without the local worker or Glimmer (as in the
 cloud) run 2's paper and photo are NO_MODEL or ERROR and the summary says so; voice is always NO_MODEL locally.
 Exit 0 when both receipts are written and verify with a known signer, 1 when one does not, 3 when a run is an
-operational error.
+operational error or an argument is bad (as in the CLI).
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ from receipt_show import KNOWN_SIGNERS, WITNESSES, check, fields, seconds  # noq
 sys.path.insert(0, str(REPO))
 from tinytms.receipts_index import load_known_signers  # noqa: E402
 from tinytms.verify import DEFAULT_MAX_WEIGHT_KG  # noqa: E402
+from tinytms.cli import ArgumentParser  # noqa: E402  (a bad argument exits 3, as in the CLI)
 
 
 def closed_local_url() -> str:
@@ -87,7 +88,7 @@ def side_by_side(r1: dict[str, Any], p1: Path, r2: dict[str, Any], p2: Path, url
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--load", required=True)
     ap.add_argument("--doc", required=True)
     ap.add_argument("--voice", required=True)
