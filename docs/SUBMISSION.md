@@ -95,7 +95,8 @@ has the local, auto, explain and web commands.
 
 ## Evidence for reviewers
 
-- `receipts/`: every signed run; each one passes `tinytms.receipt.verify_receipt` (snippet in README). Three signer
+- `receipts/`: the published signed runs (32 of the 39 API calls in `receipts/llamadas.json` have one; README, "What is
+  measured", says why the other 7 do not); each one passes `python scripts/receipt_show.py`. Three signer
   keys, by `public_key` prefix: `50be0ced` (the measuring seat: the two local Glimmer receipts), `a100b16d` (the
   day-2 API lane) and `37f9717d` (the day-3 API lane: the Spanish voice, explanation and explained check-in receipts).
   The full hex is in each receipt's `public_key`.
@@ -106,8 +107,10 @@ has the local, auto, explain and web commands.
 
 ## License
 
-Apache-2.0 (`LICENSE`). Test photos from Wikimedia Commons: `boxes-pallet.jpg` public domain, `boxes-moving.jpg` by
-brownpau, CC BY 2.0 (`evals/public/PROCEDENCIA.md`). The Carta de Porte and both voice notes are synthetic.
+Apache-2.0 (`LICENSE`). Test photos from Wikimedia Commons: `boxes-moving.jpg` by brownpau, CC BY 2.0, used in the
+commands; `boxes-pallet.jpg`, public domain, stays only as the input of the 2026-10-28 receipts and is not used in the
+demo (`evals/public/PROCEDENCIA.md`). The Carta de Porte and the one second of silence are synthetic. The SYNTHETIC-TTS
+Spanish voice note was withdrawn for its license, which allows personal, non-commercial use only (`evals/PROCEDENCIA.md`).
 
 ## Team
 
@@ -129,9 +132,11 @@ Copied from the README section "What is NOT here (yet)". The local-mode bullet w
 request that added this file: `--mode local` has a real run, the local fallback of `--mode auto` does not.
 
 - `fixtures/` are hand-written and labelled FIXTURE in file name and content. They are not model outputs.
-- The `evals/` media are a handful of test inputs: two public photos, one synthetic Carta de Porte, one second
-  of silence and one SYNTHETIC-TTS Spanish voice note (macOS voice, not a person). They are not an accuracy
-  benchmark. There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
+- The `evals/` media are a handful of test inputs: two public photos (`boxes-pallet.jpg` stays only as the input of
+  the 2026-10-28 receipts, see `evals/public/PROCEDENCIA.md`), one synthetic Carta de Porte and one second of silence.
+  They are not an accuracy benchmark. The SYNTHETIC-TTS Spanish voice note (macOS voice, not a person) behind the
+  three real transcripts was withdrawn for its license (`evals/PROCEDENCIA.md`); its receipts and transcripts stay.
+  There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
   Beyond those it is tested on a hand-written SYNTHETIC corpus of 62 cases (`tests/data/voice-es-variantes.json`: number words,
   "docena", spelled letters, "guión"/"raya", seals said as one number) and on generated number words. When the
   driver corrects a count ("doce… no, trece"), gives two ("doce o trece"), hedges ("unas doce"), negates it or says

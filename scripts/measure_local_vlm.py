@@ -3,7 +3,10 @@
 NOT run by the build lane. For the cockpit / L1, on a session with Metal access:
 
     TINYTMS_LOCAL_PYTHON=/path/to/venv-with-glimmer-mlx_vlm/bin/python \
-      python scripts/measure_local_vlm.py --image evals/public/boxes-pallet.jpg
+      python scripts/measure_local_vlm.py --image evals/public/boxes-moving.jpg
+
+--image has no default. The 2026-10-28 receipt was measured on boxes-pallet.jpg, which stays in evals/public/
+only as that receipt's input (evals/public/PROCEDENCIA.md); new measurements use another image.
 
 Writes receipts/local-vlm-<utc>.json (signed) with the command relative to the repo, the date, the
 interpreter by variable name and version, the mlx_vlm version and the library-reported stats. The
