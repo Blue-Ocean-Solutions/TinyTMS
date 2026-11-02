@@ -570,7 +570,14 @@ def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[s
             if _is_unit(after) or after in _WEIGHT_UNITS or (_is_filler(after) and _is_unit(_w(lows, j + 1))):
                 if len(groups) == 1:
                     break  # "..., doce tarimas": the number after the seal is the count
-                return "", i, f"seal digits run into a count: {' '.join(lows[i:j + 1])!r}"
+                # "... uno tres cuatro mil ochocientos kilos" (the local ASR writes no stop): digits said one by one,
+                # then a weight. The last number is the weight. Accepted cost (2026-11-02): "<digit> mil ..." is read
+                # as the weight's thousands, so "...tres mil ochocientos" (...3, 1800 kg) reads the seal one digit
+                # short and HOLDs. A seal said as one number ("... doscientos cuatro mil") does not split.
+                if after not in _WEIGHT_UNITS or not all(
+                        e == s + 1 and (lows[s].isdecimal() or lows[s] in _DIGIT_OF) for _, s, e in groups[:-1]):
+                    return "", i, f"seal digits run into a count: {' '.join(lows[i:j + 1])!r}"
+                groups, j = groups[:-1], groups[-1][1]
             for (_, _, e), (_, s, _) in zip(groups, groups[1:]):
                 if _unclear_pair(lows[e - 1], lows[s]):
                     return "", j, f"unclear seal digits: {lows[e - 1] + ' ' + lows[s]!r}"

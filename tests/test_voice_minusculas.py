@@ -5,7 +5,7 @@ The local ASR (Omnilingual CTC) writes lowercase Spanish with no punctuation and
 that seal came back None with an empty detail: lost, and nothing said why. The rule now, in seal position only: a
 lowercase group of up to 3 ASCII letters is a seal's letters when a dash or digits follow it, and it comes out
 uppercased. Function words ("es", "de", "y", ...) never are. A seal said with no id read always says why, and the
-judge HOLDs on it.
+judge HOLDs on it. With no stop before it, a weight right after digits said one by one is split off as the weight.
 """
 
 from __future__ import annotations
@@ -59,15 +59,10 @@ ORDER_A = "doce bultos sello {mx} {dash} cuatro ocho dos uno tres cuatro mil och
 @pytest.mark.parametrize("dash", ["guión", "guion"])
 def test_lowercase_sentence_gives_what_the_uppercase_one_gives(dash):
     low, up = witness(ORDER_A.format(mx="mx", dash=dash)), witness(ORDER_A.format(mx="MX", dash=dash))
-    assert (low.count, low.seal, low.detail) == (up.count, up.seal, up.detail)
-    assert low.count == 12
+    assert (low.count, low.seal, low.detail) == (up.count, up.seal, up.detail) == (12, "MX-48213", "")
     vl, vu = judge(V, D, low, L), judge(V, D, up, L)
     assert vl == vu
-    assert (vl.checks["count"], vl.checks["weight"], vl.checks["hazmat"]) == ("pass", "pass", "pass")
-    # Without a stop between the seal and the weight neither form reads a seal: "tres cuatro mil ochocientos kilos"
-    # is ...3 and 4800 kg, or ...34 and 1800 kg ("mil ochocientos"); the parser does not guess. It says so and HOLDs.
-    if low.seal is None:
-        assert "seal" in low.detail and vl.decision == "HOLD" and "SEAL_MISSING voice" in vl.reasons
+    assert vl.decision == "ACCEPT" and set(vl.checks.values()) == {"pass"}
 
 
 @pytest.mark.parametrize("dash", ["guión", "guion"])
@@ -94,6 +89,55 @@ def test_generated_seals_in_lowercase():
         digits = "".join(rng.choice("0123456789") for _ in range(rng.randint(3, 8)))
         text = f"el sello es mx raya {' '.join(ES_0_29[int(d)] for d in digits)} traigo doce tarimas"
         assert parse_seal(text) == f"MX-{digits}", text
+
+
+# --- a weight right after the seal, no stop between them (as the local ASR writes) ---------------------------------
+
+
+@pytest.mark.parametrize("text,seal", [
+    ("doce bultos sello mx guion cuatro ocho dos uno tres 4800 kilos", "MX-48213"),
+    ("doce bultos sello mx 48213 cuatro mil ochocientos kg", "MX48213"),
+    ("doce bultos sello mx guion cuatro ocho dos uno tres cinco toneladas", "MX-48213"),
+    ("doce bultos sello mx guion cuatro ocho dos uno tres cuarenta y ocho kilos", "MX-48213"),
+    ("twelve pallets seal mx dash four eight two one three four thousand eight hundred pounds", "MX-48213"),
+])
+def test_digits_said_one_by_one_then_a_weight_split_at_the_weight(text, seal):
+    w = witness(text)
+    assert (w.count, w.seal, w.detail) == (12, seal, ""), w.detail
+
+
+def test_generated_digit_seals_followed_by_a_weight():
+    rng = random.Random("nube-7:weight")
+    for _ in range(1000):
+        digits = "".join(rng.choice("0123456789") for _ in range(rng.randint(3, 8)))
+        kg = rng.choice([rng.randint(1, 999), rng.randint(2000, 30000)])  # 1000-1999: see the test below
+        text = f"doce tarimas sello mx guion {' '.join(ES_0_29[int(d)] for d in digits)} {es_words(kg)} kilos"
+        w = witness(text)
+        assert (w.count, w.seal, w.detail) == (12, f"MX-{digits}", ""), text
+
+
+def test_the_accepted_cost_of_the_split():
+    # "<digit> mil ..." right after the seal's digits is read as the weight's thousands (accepted, 2026-11-02): it is
+    # how "cuatro mil ochocientos kilos" is said, and the local ASR writes no stop before it. The cost: a driver who
+    # meant the seal's last digit and then "mil ochocientos" (1800 kg) gets the seal one digit short. Against the
+    # paper that HOLDs; it could only ACCEPT against a paper whose seal is that one digit short too.
+    assert parse_seal("sello mx guion cuatro ocho dos uno tres cuatro mil ochocientos kilos") == "MX-48213"
+    w = witness("doce tarimas sello mx guion cuatro ocho dos uno tres mil ochocientos kilos")
+    assert w.seal == "MX-4821"
+    v = judge(V, D, w, L)
+    assert v.decision == "HOLD" and v.reasons == ("SEAL_MISMATCH doc=MX48213 voice=MX4821",)
+
+
+@pytest.mark.parametrize("text", [
+    # a count, not a weight: "tres doce tarimas" could be ...3 and 12 pallets, or ...312 said in pairs
+    "doce tarimas sello mx guion cuatro ocho dos uno tres doce tarimas",
+    # the seal said as one number runs into the weight: 48204 and 1800 kg, or 48200 and 4800 kg
+    "doce tarimas sello mx guion cuarenta y ocho mil doscientos cuatro mil ochocientos kilos",
+    "doce tarimas sello mx guion cuarenta y ocho cuatro mil ochocientos kilos",
+])
+def test_digits_that_do_not_split_cleanly_read_no_seal(text):
+    w = witness(text)
+    assert w.seal is None and "seal digits run into a count" in w.detail, w.detail
 
 
 # --- (b) the forms a seal comes in ---------------------------------------------------------------------------------
