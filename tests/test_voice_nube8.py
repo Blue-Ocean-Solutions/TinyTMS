@@ -280,3 +280,84 @@ def test_fix_6_fuzz_the_seal_is_exact_or_none_with_a_reason():
         w = witness(text)
         assert w.seal in (None, f"MX-{digits}"), (text, w.seal)
         assert w.seal is not None or "seal" in w.detail, text
+
+
+# --- 7. words between the keyword and the id; plural keywords; a keyword said last ---------------------------------
+
+BETWEEN_ES = ["de la caja es", "que traigo es el", "pues es", "de la caja de atrás es el", "que me dieron es",
+              "lo revisé y es", ", el de la caja, es", "de seguridad que trae es"]
+BETWEEN_EN = ["on the trailer is", "we have is", "on the back door is", "they gave me is"]
+IDS = [("MX-48213", "MX-48213"), ("MX guión cuatro ocho dos uno tres", "MX-48213"), ("mx guion cuatro ocho dos uno tres",
+       "MX-48213"), ("eme equis guión cuatro ocho dos uno tres", "MX-48213"), ("cuatro ocho dos uno tres", "48213"),
+       ("doble u equis cuatro ocho dos uno tres", "WX48213")]
+
+
+def test_fix_7_cases_are_in_the_corpus():
+    assert len(fix(7)) == 14
+
+
+@pytest.mark.parametrize("said,seal", IDS)
+def test_fix_7_words_between_the_keyword_and_an_id_that_reads_one_way(said, seal):
+    for between in BETWEEN_ES:
+        w = witness(f"Traigo doce tarimas. El sello {between} {said}.")
+        assert (w.count, w.seal) == (12, seal), (between, said, w.detail)
+    for between in BETWEEN_EN:
+        w = witness(f"Twelve pallets. The seal {between} M X dash four eight two one three.")
+        assert (w.count, w.seal) == (12, "MX-48213"), (between, w.detail)
+
+
+@pytest.mark.parametrize("text,why", [
+    ("El sello de la caja cuatro es MX-48213.", "unclear which number is the seal"),
+    ("El sello del tráiler dos es cuatro ocho dos uno tres.", "unclear which number is the seal"),
+    ("The seal on trailer four is MX-48213.", "unclear which number is the seal"),
+    ("El sello de la caja MX-48213.", "unclear which number is the seal"),
+    ("The seal should be four eight two one three.", "unclear where the seal starts"),
+    ("seal s MX 48213", "unclear where the seal starts"),
+    ("El sello es mxñ guión cuatro ocho dos uno tres.", "unclear where the seal starts"),
+    ("El sello lo traigo y son doce tarimas.", "seal said but no id read"),
+    ("El sello que me dieron ayer en la caseta de cobro del norte es MX-48213.", "seal said but no id read"),
+])
+def test_fix_7_an_id_that_does_not_read_one_way_gives_a_reason(text, why):
+    w = witness(text)
+    assert w.seal is None and why in w.detail, (w.seal, w.detail)
+
+
+@pytest.mark.parametrize("plural", ["sellos", "seals", "precintos", "marchamos", "Sellos"])
+def test_fix_7_a_plural_keyword_is_never_silent(plural):
+    for text in (f"Traigo doce tarimas, los {plural} son MX-48213 y MX-48214.", f"Traigo doce tarimas, {plural} MX-48213.",
+                 f"Traigo doce tarimas y los {plural}."):
+        w = witness(text)
+        assert w.seal is None and f"several seals said in transcript: {plural!r}" in w.detail, (text, w.detail)
+        assert w.count == 12 and judge(V, D, w, L).reasons == ("SEAL_MISSING voice",)
+
+
+@pytest.mark.parametrize("keyword", ["sello", "seal", "precinto", "marchamo", "Sello", "SEAL"])
+@pytest.mark.parametrize("end", ["", ".", "...", " eh", ","])
+def test_fix_7_a_keyword_said_last_is_never_silent(keyword, end):
+    w = witness(f"Traigo doce tarimas y el {keyword}{end}")
+    assert w.seal is None and "seal said but no id read" in w.detail, w.detail
+    assert w.count == 12
+
+
+def test_fix_7_fuzz_any_seal_word_anywhere_is_never_silent():
+    import random
+    import re
+    rng = random.Random("nube-8:fuzz-7")
+    vocab = ("sello sellos seal seals el la de que es is the on caja tráiler trailer cuatro ocho dos uno tres doce "
+             "tarimas MX MX-48213 mx guión doble u no roto , . traigo pues eh").split()
+    for _ in range(4000):
+        text = " ".join(rng.choice(vocab) for _ in range(rng.randint(1, 12)))
+        w = witness(text)
+        assert w.seal is None or any(ch.isdigit() for ch in w.seal), text
+        if w.seal is None and re.search(r"\b(sellos?|seals?)\b", text):
+            assert "seal" in w.detail, text
+
+
+@pytest.mark.parametrize("text", ["Traigo doce tarimas y el sello No, perdón, trece.",
+                                  "Traigo doce tarimas y el sello es, perdón, trece.",
+                                  "Traigo doce tarimas, el sello lo traigo, perdón, trece."])
+def test_fix_7_a_correction_after_the_keyword_is_never_taken_for_the_id(text):
+    # The words-between scan must not step over a correction and claim the corrected count as the seal.
+    w = witness(text)
+    assert w.count is None and "self-correction" in w.detail, w.detail
+    assert w.seal is None and "seal" in w.detail

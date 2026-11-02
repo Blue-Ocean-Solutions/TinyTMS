@@ -314,6 +314,7 @@ _NOT_FILLER = frozenset(
 
 # Seal mentions. Spelled letter names are only the ones that are not also everyday words ("de", "te", "ese", "ve").
 _SEAL_KEYWORDS = frozenset({"sello", "seal", "precinto", "marchamo"})
+_SEAL_PLURALS = frozenset({"sellos", "seals", "precintos", "marchamos"})  # more than one seal: the witness has one
 # "no" is a lead-in only as the abbreviation "No." ("sello No. MX-48213"); "el sello no es MX-48213" negates it.
 _SEAL_LEAD_IN = frozenset(
     "number num nro n nº número numero es is was era dice says reads de del seguridad security el la the ese".split()
@@ -345,7 +346,8 @@ _NOT_SEAL_LETTERS = frozenset(
     "muy tan mas ese esa eso ok oh "
     "an and are as at by do for go has i if in is it its of on or per so the to up us was we yes".split()
 ) | _WEIGHT_UNITS | _SPEECH_FILLERS
-_LETTER_PAIRS = {("doble", "ve"): "W", ("doble", "uve"): "W", ("uve", "doble"): "W", ("i", "griega"): "Y"}
+_LETTER_PAIRS = {("doble", "ve"): "W", ("doble", "uve"): "W", ("uve", "doble"): "W", ("doble", "u"): "W",
+                 ("i", "griega"): "Y"}
 # Words that can follow a seal's last digit without being counted by it: "... uno tres traigo doce tarimas", "... tres
 # y son de madera", "... tres de la caja", "... tres peso cuatro mil ...", "... tres sin material peligroso". Any other
 # word right after digits said in a run ("... uno tres doce paquetes", "... tres dos horas esperando") may be counted
@@ -580,7 +582,9 @@ def _seal_like(toks: list[tuple[str, str]], lows: list[str], i: int) -> bool:
     if n:
         after = _w(lows, n[1])
         return not (_is_unit(after) or after in _WEIGHT_UNITS)
-    return lows[i] in _SPELLED or _lowercase_letters(toks, lows, i) or bool(
+    nxt = _w(lows, i + 1)
+    return lows[i] in _SPELLED or (lows[i], nxt) in _LETTER_PAIRS or (
+        lows[i] in ("doble", "double", "triple") and nxt in _DIGIT_OF) or _lowercase_letters(toks, lows, i) or bool(
         re.fullmatch(r"[A-Za-z0-9-]+", text) and (any(c.isdigit() for c in text) or (text.isupper() and len(text) <= 3))
     )
 
@@ -768,6 +772,56 @@ def _seal_denied_after(toks: list[tuple[str, str]], lows: list[str], k: int, i: 
     return negated
 
 
+def _seal_start(toks: list[tuple[str, str]], lows: list[str], k: int, i: int) -> tuple[int, str]:
+    """Where the id of the seal said at k starts, from i (past the keyword and its lead-ins) and past up to 6 words that
+    are not it: 'el sello de la caja es MX-48213', 'el sello que traigo es el MX-48213', 'the seal on the trailer is
+    four eight ...'. (index or -1, why the id cannot be taken). Past other words the id must come after a lead-in ('es',
+    'is', 'el', 'the', 'número', ...). No id past a stop, a correction ('el sello, perdón, trece'), a number that is
+    not one (a count, a weight) or another seal. Not one way: the id right after a noun that takes a number ('el sello
+    de la caja cuatro es MX-48213': the box's 4 or the seal?), after a word that may be its letters ('seal s MX 48213')
+    or a dash ('mxñ guión cuatro ...'), or 'be' after other words ('the seal should be ...')."""
+    if i < len(toks) and _seal_like(toks, lows, i):
+        return i, ""
+    words, why, j = 0, "", i
+    while j < len(toks) and words <= 6:
+        kind, w = toks[j][0], lows[j]
+        if (w == "no" and _w(lows, j + 1) == ".") or (toks[j][1] == "." and _w(lows, j - 1) in ("no", "num", "nro", "n")):
+            j += 1
+            continue
+        if kind == "stop" or w in _SEAL_KEYWORDS or w in _SEAL_PLURALS:
+            break
+        if kind in ("comma", "dash", "clitic") or w in _SEAL_LEAD_IN or w in _SPEECH_FILLERS:
+            j += 1
+            continue
+        if n := _negation_at(toks, lows, j):
+            why, j = why or _negated(lows[k:j + n]), j + n
+            continue
+        if w in _SEAL_BAD:
+            why, j = why or _reported(lows[k:j + 1]), j + 1
+            continue
+        if _phrase_at(lows, j, _CORRECTIONS):
+            break
+        if _seal_like(toks, lows, j):
+            said = " ".join(lows[k:j + 1])
+            p = j - 1
+            while p > i and (toks[p][0] == "comma" or lows[p] in _SPEECH_FILLERS):
+                p -= 1
+            kind_p, text_p, low_p = toks[p][0], toks[p][1], lows[p]
+            if kind_p == "word" and low_p in _ID_NOUNS and low_p not in _SEAL_LEAD_IN:
+                return -1, why or f"unclear which number is the seal: {said!r}"
+            # a dash, or a short word that may be letters of the id ('mxñ guión cuatro', 'seal s MX 48213'): the id
+            # may start before what reads as one
+            if kind_p == "dash" or low_p in _SEAL_DASH or (words and w == "be") or (
+                    kind_p == "word" and text_p.isalpha() and len(text_p) <= 3 and low_p not in _NOT_SEAL_LETTERS
+                    and low_p not in _SEAL_LEAD_IN):
+                return -1, why or f"unclear where the seal starts: {said!r}"
+            return (j if not words or low_p in _SEAL_LEAD_IN else -1), why
+        if kind == "num" or (w not in ("un", "una", "a", "an") and _number_at(lows, j, dozens=False)):
+            break
+        words, j = words + 1, j + 1
+    return -1, why
+
+
 def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, str, set[int]]:
     """Every seal mention: (seal or None, why None when one was said, token indices the mentions cover)."""
     values: list[str] = []
@@ -776,12 +830,14 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
     covered: set[int] = set()
     k = 0
     while k < len(toks):
-        if lows[k] not in _SEAL_KEYWORDS:
+        if lows[k] not in _SEAL_KEYWORDS and lows[k] not in _SEAL_PLURALS:
             k += 1
             continue
         before = len(values), len(whys)
         if denied := _seal_denied_before(toks, lows, k):
             whys.append(denied)
+        elif lows[k] in _SEAL_PLURALS:  # "los sellos son MX-48213 y MX-48214": their ids are read only to set aside
+            whys.append(f"several seals said in transcript: {toks[k][1]!r}")
         i = k + 1
         while i < len(toks) and (toks[i][0] in ("comma", "clitic") or lows[i] in _SEAL_LEAD_IN
                                  or (lows[i] == "no" and _w(lows, i + 1) == ".")
@@ -794,7 +850,11 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
             if len(whys) == before[1]:
                 whys.append(_negated(lows[k:j]))
             i = j
-        while True:
+        start, why = _seal_start(toks, lows, k, i)
+        if why and len(whys) == before[1]:
+            whys.append(why)
+        i = start if start >= 0 else i
+        while start >= 0:
             value, i, why = _seal_value(toks, lows, i)
             if why:
                 whys.append(why)
@@ -814,7 +874,7 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
             i = nxt
         if len(whys) == before[1] and (denied := _seal_denied_after(toks, lows, k, i)):
             whys.append(denied)
-        if (len(values), len(whys)) == before and k + 1 < len(toks):
+        if (len(values), len(whys)) == before:  # "el sello es de plástico", and a keyword said last: "... y el sello"
             unread.append(" ".join(lows[k:i + 1]))
         covered.update(range(k, i))
         k = max(i, k + 1)
