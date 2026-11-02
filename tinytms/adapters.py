@@ -309,6 +309,14 @@ _SPELLED = {"be": "B", "ce": "C", "efe": "F", "ge": "G", "hache": "H", "jota": "
             "eme": "M", "ene": "N", "eñe": "Ñ", "pe": "P", "cu": "Q", "erre": "R", "uve": "V", "equis": "X",
             "ye": "Y", "zeta": "Z"}
 _NOT_SEAL = frozenset({"OK", "Ok", "NO", "SÍ", "SI", "YA"})
+# The local ASR writes a seal's letters in lowercase ("el sello es mx guión cuatro..."). Function words never are seal
+# letters, whatever follows them ("el sello es de plástico", "cuatro ocho y dos uno tres").
+_NOT_SEAL_LETTERS = frozenset(
+    "es el la los las de del un una y o no en con sin que se su mi tu al lo "
+    "a e u ni le les me te nos mis tus sus por pa pal ya si son era fue ha he han hay va van voy da dan doy ver vez "
+    "muy tan mas ese esa eso ok oh "
+    "an and are as at by do for go has i if in is it its of on or per so the to up us was we yes".split()
+) | _WEIGHT_UNITS | _SPEECH_FILLERS
 _DIGIT_OF = {w: str(v) for w, v in (*_ES_ONES.items(), *_EN_ONES.items(), ("cero", 0), ("zero", 0))
              if w not in ("un", "una")}
 
@@ -480,6 +488,26 @@ def _unclear_pair(last: str, first: str) -> bool:
 # --- seal --------------------------------------------------------------------------------------
 
 
+def _lowercase_letters(toks: list[tuple[str, str]], lows: list[str], i: int) -> bool:
+    """Is the token at i a seal's letters written lowercase: up to 3 ASCII letters, not a function word, with a dash or
+    digits after it (past more such letters: 'm x guión', the stutter 'mx mx guión')?"""
+    def letters(j: int) -> bool:
+        t = toks[j][1]
+        return toks[j][0] == "word" and len(t) <= 3 and t.isascii() and t.isalpha() and t.islower() and (
+            lows[j] not in _NOT_SEAL_LETTERS)
+
+    if not letters(i):
+        return False
+    for j in range(i + 1, len(toks)):
+        kind, text = toks[j]
+        if kind == "dash" or lows[j] in _SEAL_DASH or any(ch.isdigit() for ch in text) or (
+                lows[j] not in ("un", "una") and _number_at(lows, j, dozens=False)):
+            return True
+        if not (letters(j) or lows[j] in _SPELLED or kind == "comma" or lows[j] in _SPEECH_FILLERS):
+            return False
+    return False
+
+
 def _seal_like(toks: list[tuple[str, str]], lows: list[str], i: int) -> bool:
     """Would the token at i continue a seal id (and not start a count or a weight)?"""
     kind, text = toks[i]
@@ -489,7 +517,7 @@ def _seal_like(toks: list[tuple[str, str]], lows: list[str], i: int) -> bool:
     if n:
         after = _w(lows, n[1])
         return not (_is_unit(after) or after in _WEIGHT_UNITS)
-    return lows[i] in _SPELLED or bool(
+    return lows[i] in _SPELLED or _lowercase_letters(toks, lows, i) or bool(
         re.fullmatch(r"[A-Za-z0-9-]+", text) and (any(c.isdigit() for c in text) or (text.isupper() and len(text) <= 3))
     )
 
@@ -553,6 +581,8 @@ def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[s
             out.append(_SPELLED[low])
             i += 1
             continue
+        if _lowercase_letters(toks, lows, i):
+            text = text.upper()  # "mx guión cuatro ..." reads as "MX guión cuatro ..."
         if text not in _NOT_SEAL and re.fullmatch(r"[A-Za-z0-9\-]+", text) and (
                 any(ch.isdigit() for ch in text) or (text.isupper() and len(text) <= 3)):
             # "MX MX guión ..." (real transcript): a letter group repeated back to back is one ASR stutter.
@@ -570,6 +600,7 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
     """Every seal mention: (seal or None, why None when one was said, token indices the mentions cover)."""
     values: list[str] = []
     whys: list[str] = []
+    unread: list[str] = []  # mentions with words after the keyword but no id: "el sello es de plástico"
     covered: set[int] = set()
     k = 0
     while k < len(toks):
@@ -580,6 +611,7 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
         while i < len(toks) and (toks[i][0] == "comma" or lows[i] in _SEAL_LEAD_IN
                                  or (toks[i][1] == "." and lows[i - 1] in ("no", "num", "nro", "n"))):
             i += 1
+        before = len(values), len(whys)
         while True:
             value, i, why = _seal_value(toks, lows, i)
             if why:
@@ -600,6 +632,8 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
                 whys.append(f"seal interrupted by {toks[i][1]!r}")
                 break
             i = nxt
+        if (len(values), len(whys)) == before and k + 1 < len(toks):
+            unread.append(" ".join(lows[k:i + 1]))
         covered.update(range(k, i))
         k = max(i, k + 1)
     if whys:
@@ -607,6 +641,8 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
     distinct = sorted({v.replace("-", "").upper() for v in values})
     if len(distinct) > 1:
         return None, f"seals disagree in transcript: {distinct}", covered
+    if not values and unread:  # never silent: a seal was said and no id came out of it
+        return None, "seal said but no id read: " + ", ".join(repr(u) for u in unread), covered
     return (values[0] if values else None), "", covered
 
 
