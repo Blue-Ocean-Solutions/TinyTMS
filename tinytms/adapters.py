@@ -283,6 +283,16 @@ _APPROX_AFTER = tuple(tuple(p.split()) for p in (
     "más o menos", "mas o menos", "o así", "o asi", "aproximadamente", "o algo así", "y pico", "or so", "roughly",
     "approximately", "give or take", "more or less",
 ))
+# The driver is not sure: "creo que son doce", "tal vez doce", "maybe twelve", "doce tarimas, creo".
+_HEDGES = tuple(tuple(p.split()) for p in (
+    "creo", "supongo", "pienso", "parece", "quizá", "quizás", "quiza", "quizas", "tal vez", "talvez", "a lo mejor",
+    "probablemente", "posiblemente", "maybe", "perhaps", "probably", "possibly", "think", "i think", "guess", "i guess",
+    "believe", "i believe", "might", "may be",
+))
+_HEDGES_AFTER = tuple(tuple(p.split()) for p in (
+    "creo", "creo yo", "supongo", "me parece", "quizá", "quizás", "tal vez", "i think", "i guess", "i believe", "maybe",
+    "probably", "perhaps",
+))
 _NEGATIONS = frozenset({"no", "ni", "nunca", "tampoco", "not", "never", "nor"})
 _NEGATED_CONTRACTIONS = frozenset({"don", "doesn", "didn", "isn", "aren", "wasn", "weren", "haven", "hasn", "won",
                                    "can", "couldn"})
@@ -868,6 +878,13 @@ def _count(ws: list[str]) -> tuple[int | None, str]:
         q = u + 1 if _w(ws, u) == "," else u
         if _phrase_ending_at(ws, s, _APPROX_BEFORE) or _phrase_at(ws, q, _APPROX_AFTER):
             return None, f"approximate count in transcript: {said!r}"
+        k = s
+        while k > 0 and s - k < 5 and _w(ws, k - 1) not in (".", "|", "-"):  # a hedge up to 5 words before it
+            if n := _phrase_ending_at(ws, k, _HEDGES):
+                return None, f"hedged count in transcript: {' '.join(ws[k - n:u])!r}"
+            k -= 1
+        if (n := _phrase_at(ws, q, _HEDGES_AFTER)) and _w(ws, q + n) in ("", ".", ",", "|"):
+            return None, f"hedged count in transcript: {' '.join(ws[s:q + n])!r}"
         for k in range(s - 1, max(s - 5, -1), -1):
             if ws[k] in (".", ",", "-", "|"):
                 break

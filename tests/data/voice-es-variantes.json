@@ -97,6 +97,13 @@
   {"id": "en-n8-4-is-not", "text": "Twelve pallets, the seal is not MX-48213.", "meant": {"count": 12, "seal": null}, "expect": {"count": 12, "seal": null}, "seal_detail": "negated seal in transcript: 'seal is not'"},
   {"id": "en-n8-4-no-seal", "text": "Twelve pallets, no seal.", "meant": {"count": 12, "seal": null}, "expect": {"count": 12, "seal": null}, "seal_detail": "negated seal in transcript: 'no seal'"},
   {"id": "es-n8-4-sin-sello", "text": "Traigo doce tarimas sin sello.", "meant": {"count": 12, "seal": null}, "expect": {"count": 12, "seal": null}, "seal_detail": "seal reported broken, missing or not matching in transcript: 'sin sello'"},
-  {"id": "es-n8-4-coma-otra-negacion", "text": "Traigo doce tarimas, el sello es MX-48213, no traigo material peligroso.", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": "MX-48213"}}
+  {"id": "es-n8-4-coma-otra-negacion", "text": "Traigo doce tarimas, el sello es MX-48213, no traigo material peligroso.", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": "MX-48213"}},
+  {"id": "es-n8-5-creo-que-son", "text": "Creo que son doce tarimas.", "meant": {"count": null, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "hedged count in transcript: 'creo que son doce tarimas'"},
+  {"id": "es-n8-5-tal-vez", "text": "Tal vez doce tarimas.", "meant": {"count": null, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "hedged count in transcript: 'tal vez doce tarimas'"},
+  {"id": "en-n8-5-maybe", "text": "Maybe twelve pallets.", "meant": {"count": null, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "hedged count in transcript: 'maybe twelve pallets'"},
+  {"id": "en-n8-5-i-think", "text": "I think twelve pallets.", "meant": {"count": null, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "hedged count in transcript: 'i think twelve pallets'"},
+  {"id": "es-n8-5-creo-despues", "text": "Traigo doce tarimas, creo.", "meant": {"count": null, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "hedged count in transcript: 'doce tarimas , creo'"},
+  {"id": "en-n8-5-i-think-after", "text": "Twelve pallets, I think.", "meant": {"count": null, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "hedged count in transcript: 'twelve pallets , i think'"},
+  {"id": "es-n8-5-creo-del-sello", "text": "Traigo doce tarimas. Creo que el sello es MX-48213.", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": "MX-48213"}}
  ]
 }

@@ -191,3 +191,40 @@ def test_fix_4_the_abbreviation_no_still_reads(said):
 def test_fix_4_a_negation_about_something_else(text, seal, why):
     w = witness(text)
     assert (w.count, w.seal, w.detail) == (12, seal, why)
+
+
+# --- 5. hedged counts ----------------------------------------------------------------------------------------------
+
+HEDGED = ["creo que son {n} tarimas", "creo que traigo {n} tarimas", "tal vez {n} tarimas", "talvez son {n} tarimas",
+          "quizás {n} tarimas", "a lo mejor son {n} tarimas", "supongo que son {n} tarimas", "me parece que son {n} cajas",
+          "probablemente {n} bultos", "{n} tarimas, creo", "{n} tarimas, creo yo", "{n} tarimas, supongo"]
+HEDGED_EN = ["maybe {n} pallets", "I think {n} pallets", "I think it's {n} pallets", "probably {n} pallets",
+             "perhaps {n} boxes", "I guess {n} pallets", "it might be {n} pallets", "{n} pallets, I think",
+             "{n} pallets, maybe", "I believe we have {n} pallets"]
+
+
+def test_fix_5_cases_are_in_the_corpus():
+    assert len(fix(5)) == 7
+
+
+@pytest.mark.parametrize("n", [1, 12, 24, 100])
+def test_fix_5_a_hedged_count_is_none_the_same_as_unas_doce(n):
+    from tests.test_voice_variantes import en_words, es_words
+    import random
+    assert witness(f"Traigo unas {es_words(n, True)} tarimas.").count is None  # what it already did
+    for t in HEDGED:
+        text = t.format(n=es_words(n, True)).capitalize() + "."
+        w = witness(text)
+        assert w.count is None and w.detail.startswith("hedged count in transcript: "), (text, w.detail)
+        assert "VOICE_NO_COUNT" in judge(V, D, w, L).reasons
+    for t in HEDGED_EN:
+        text = t.format(n=en_words(n, random.Random(n))).capitalize() + "."
+        w = witness(text)
+        assert w.count is None and w.detail.startswith("hedged count in transcript: "), (text, w.detail)
+
+
+@pytest.mark.parametrize("text", ["Traigo doce tarimas. Creo que el sello es MX-48213.",
+                                  "Creo que ya llegué. Traigo doce tarimas.", "Traigo doce tarimas, el sello creo que es "
+                                  "MX-48213."])
+def test_fix_5_a_hedge_about_something_else_keeps_the_count(text):
+    assert witness(text).count == 12
