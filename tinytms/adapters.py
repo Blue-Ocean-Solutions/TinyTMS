@@ -222,8 +222,11 @@ def doc_from_spark(
 # The transcript is cut into tokens (words, digit groups, punctuation). Seal mentions are read first ("sello",
 # "seal", ...) and their tokens are set aside; then every number phrase is classified: a count (number + unit noun),
 # a weight (+ kilos), an id ("tráiler cuatro"), or a bare number. A count comes out only if exactly one value is
-# said for it. Self-corrections ("doce… no, trece"), alternatives ("doce o trece"), approximations ("unas doce"),
-# negations ("no traigo doce") and unclear number words ("veinte cuatro") give None and a detail that says why.
+# said for it. Self-corrections ("doce… no, trece", "doce, no, eh, trece"), alternatives ("doce o trece"),
+# approximations ("unas doce"), hedges ("creo que son doce"), negations ("no traigo doce") and unclear number words
+# ("veinte cuatro") give None and a detail that says why. So does a seal that does not read one way: corrected
+# ("..., no, perdón, MX..."), negated, broken or missing ("el sello no es ...", "... viene roto"), run into what follows
+# it ("... uno tres cuatro mil ochocientos kilos", "... uno tres dos horas"), or said in the plural.
 
 # "payets", "pajets", "payettes": how Muse Voice Transcribe wrote "pallets" said in Spanish, three runs over the
 # same audio (real transcripts, tests/data/real-voice-es-*).
@@ -331,8 +334,8 @@ _SEAL_BAD = frozenset(
 # Words that may stand between a negation and the keyword before it: "no traigo el sello", "there is no seal".
 _SEAL_BEFORE_SKIP = frozenset(
     "el la los las lo un una the a an any ningún ningun ninguno ninguna su sus mi this that traigo trae traemos tengo "
-    "tiene tienen tenemos hay había habia viene vienen venía venia llevo lleva llevamos has have had got is está esta es "
-    "was there veo vi se le".split()
+    "tiene tienen tenemos hay había habia viene vienen venía venia llevo lleva llevamos has have had got is está esta "
+    "es was there veo vi se le".split()
 )
 _SPELLED = {"be": "B", "ce": "C", "efe": "F", "ge": "G", "hache": "H", "jota": "J", "ka": "K", "ele": "L",
             "eme": "M", "ene": "N", "eñe": "Ñ", "pe": "P", "cu": "Q", "erre": "R", "uve": "V", "equis": "X",
@@ -592,9 +595,9 @@ def _seal_like(toks: list[tuple[str, str]], lows: list[str], i: int) -> bool:
 def _continues_seal(toks: list[tuple[str, str]], lows: list[str], j: int) -> bool:
     """Would the word at j be read as more of the id right after its digits ('guión', 'oh', 'doble ocho', 'AB')?"""
     w, nxt, text = lows[j], _w(lows, j + 1), toks[j][1]
-    return w in _SPELLED or w in _SEAL_DASH or w == "oh" or (w in ("doble", "double", "triple") and nxt in _DIGIT_OF) or (
-        (w, nxt) in _LETTER_PAIRS or any(ch.isdigit() for ch in text) or (
-            text.isupper() and text.isalpha() and len(text) <= 3 and text not in _NOT_SEAL and text != "I"))
+    return (w in _SPELLED or w in _SEAL_DASH or w == "oh" or (w in ("doble", "double", "triple") and nxt in _DIGIT_OF)
+            or (w, nxt) in _LETTER_PAIRS or any(ch.isdigit() for ch in text)
+            or (text.isupper() and text.isalpha() and len(text) <= 3 and text not in _NOT_SEAL and text != "I"))
 
 
 def _ends_seal(lows: list[str], j: int) -> bool:
@@ -785,7 +788,8 @@ def _seal_start(toks: list[tuple[str, str]], lows: list[str], k: int, i: int) ->
     words, why, j = 0, "", i
     while j < len(toks) and words <= 6:
         kind, w = toks[j][0], lows[j]
-        if (w == "no" and _w(lows, j + 1) == ".") or (toks[j][1] == "." and _w(lows, j - 1) in ("no", "num", "nro", "n")):
+        if (w == "no" and _w(lows, j + 1) == ".") or (
+                toks[j][1] == "." and _w(lows, j - 1) in ("no", "num", "nro", "n")):  # "No. MX-48213"
             j += 1
             continue
         if kind == "stop" or w in _SEAL_KEYWORDS or w in _SEAL_PLURALS:

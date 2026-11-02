@@ -8,11 +8,14 @@ file adds what the corpus cannot say: the judge's decision against the paper, an
 
 from __future__ import annotations
 
+import random
+import re
+
 import pytest
 
-from tests.test_voice_variantes import CASES
-from tinytms.verify import Limits, judge
+from tests.test_voice_variantes import CASES, ES_0_29, en_words, es_words
 from tinytms.adapters import voice_from_transcript
+from tinytms.verify import Limits, judge
 from tinytms.witness import DocWitness, VisionWitness
 
 # The paper side as the real Spark read of the synthetic Carta de Porte pins it (tests/test_real_data.py).
@@ -78,8 +81,8 @@ def test_fix_2_a_word_after_the_id_ends_the_seal(seal, word):
 
 @pytest.mark.parametrize("apostrophe", ["'", "’"])
 def test_fix_2_seals_is_not_smx(apostrophe):
-    for text in (f"The seal{apostrophe}s MX-48213.", f"the seal{apostrophe}s mx 48213", f"The seal{apostrophe}s M X dash "
-                 "four eight two one three, twelve pallets."):
+    for text in (f"The seal{apostrophe}s MX-48213.", f"the seal{apostrophe}s mx 48213",
+                 f"The seal{apostrophe}s M X dash four eight two one three, twelve pallets."):
         w = witness(text)
         assert w.seal is not None and w.seal.replace("-", "").upper() == "MX48213", (text, w.seal, w.detail)
 
@@ -109,8 +112,6 @@ def test_fix_3_cases_are_in_the_corpus():
 @pytest.mark.parametrize("marker", ["no", "perdón", "digo", "mejor", "me equivoqué", "sorry", "make it", "I mean"])
 def test_fix_3_a_correction_with_words_between_never_keeps_either_count(marker, between):
     for a, b in ((12, 13), (13, 12), (4, 40)):
-        from tests.test_voice_variantes import en_words, es_words
-        import random
         wa, wb = es_words(a, True), es_words(b, True)
         for text in (f"Traigo {wa} tarimas, {marker}{between} {wb}.", f"Traigo {wa} tarimas {marker}{between} {wb}",
                      f"Traigo {wa} tarimas, {marker}{between} {wb} en total.",
@@ -121,8 +122,8 @@ def test_fix_3_a_correction_with_words_between_never_keeps_either_count(marker, 
                 text, w.detail)
 
 
-@pytest.mark.parametrize("chain", ["no, perdón,", "no, eh, perdón,", "me equivoqué, es", "perdón, a ver,", "sorry, it's",
-                                   "no, no, perdón, es el", "mejor dicho,", "o sea, eh,"])
+@pytest.mark.parametrize("chain", ["no, perdón,", "no, eh, perdón,", "me equivoqué, es", "perdón, a ver,",
+                                   "sorry, it's", "no, no, perdón, es el", "mejor dicho,", "o sea, eh,"])
 @pytest.mark.parametrize("second", ["MX cuatro ocho dos tres uno", "cuatro ocho dos tres uno", "MX-48231"])
 def test_fix_3_a_corrected_seal_is_never_resolved(chain, second):
     for first in ("MX cuatro ocho dos uno tres", "MX-48213", "mx guión cuatro ocho dos uno tres"):
@@ -151,10 +152,11 @@ DENIED = [  # {s}: the seal as said
     "el sello no es {s}", "el sello {s} viene roto", "no traigo el sello {s}", "falta el sello {s}",
     "seal {s} is broken", "seal {s} is missing", "el sello {s} no coincide", "el sello es {s}, no coincide",
     "the seal is not {s}", "the seal isn't {s}", "there is no seal {s}", "el sello {s} está dañado", "sin sello {s}",
-    "the seal {s} doesn't match", "seal {s} was tampered", "el sello {s} lo traigo abierto", "el sello {s} no corresponde",
-    "missing seal {s}", "broken seal {s}", "el sello está roto, {s}",
+    "the seal {s} doesn't match", "seal {s} was tampered", "el sello {s} lo traigo abierto",
+    "el sello {s} no corresponde", "missing seal {s}", "broken seal {s}", "el sello está roto, {s}",
 ]
-SAID = ["MX-48213", "MX guión cuatro ocho dos uno tres", "mx guion cuatro ocho dos uno tres", "cuatro ocho dos uno tres"]
+SAID = ["MX-48213", "MX guión cuatro ocho dos uno tres", "mx guion cuatro ocho dos uno tres",
+        "cuatro ocho dos uno tres"]
 
 
 def test_fix_4_cases_are_in_the_corpus():
@@ -164,16 +166,18 @@ def test_fix_4_cases_are_in_the_corpus():
 @pytest.mark.parametrize("template", DENIED)
 @pytest.mark.parametrize("said", SAID)
 def test_fix_4_a_denied_seal_is_never_read(template, said):
-    for text in (f"Traigo doce tarimas, {template.format(s=said)}.", f"{template.format(s=said)}, traigo doce tarimas."):
+    denied = template.format(s=said)
+    for text in (f"Traigo doce tarimas, {denied}.", f"{denied}, traigo doce tarimas."):
         w = witness(text)
         assert w.seal is None, (text, w.seal)
-        assert "negated seal" in w.detail or "seal reported broken, missing or not matching" in w.detail, (text, w.detail)
+        assert "negated seal" in w.detail or "seal reported broken, missing or not matching" in w.detail, (
+            text, w.detail)
         assert w.count == 12, (text, w.detail)
         assert judge(V, D, w, L).reasons == ("SEAL_MISSING voice",)
 
 
-@pytest.mark.parametrize("said", ["sello No. MX-48213", "sello no. MX-48213", "sello Nº MX-48213", "sello nro. MX-48213",
-                                  "seal No. MX-48213", "el sello número MX-48213"])
+@pytest.mark.parametrize("said", ["sello No. MX-48213", "sello no. MX-48213", "sello Nº MX-48213",
+                                  "sello nro. MX-48213", "seal No. MX-48213", "el sello número MX-48213"])
 def test_fix_4_the_abbreviation_no_still_reads(said):
     w = witness(f"Traigo doce tarimas, {said}.")
     assert (w.count, w.seal, w.detail) == (12, "MX-48213", ""), w.detail
@@ -196,8 +200,9 @@ def test_fix_4_a_negation_about_something_else(text, seal, why):
 # --- 5. hedged counts ----------------------------------------------------------------------------------------------
 
 HEDGED = ["creo que son {n} tarimas", "creo que traigo {n} tarimas", "tal vez {n} tarimas", "talvez son {n} tarimas",
-          "quizás {n} tarimas", "a lo mejor son {n} tarimas", "supongo que son {n} tarimas", "me parece que son {n} cajas",
-          "probablemente {n} bultos", "{n} tarimas, creo", "{n} tarimas, creo yo", "{n} tarimas, supongo"]
+          "quizás {n} tarimas", "a lo mejor son {n} tarimas", "supongo que son {n} tarimas",
+          "me parece que son {n} cajas", "probablemente {n} bultos", "{n} tarimas, creo", "{n} tarimas, creo yo",
+          "{n} tarimas, supongo"]
 HEDGED_EN = ["maybe {n} pallets", "I think {n} pallets", "I think it's {n} pallets", "probably {n} pallets",
              "perhaps {n} boxes", "I guess {n} pallets", "it might be {n} pallets", "{n} pallets, I think",
              "{n} pallets, maybe", "I believe we have {n} pallets"]
@@ -209,8 +214,6 @@ def test_fix_5_cases_are_in_the_corpus():
 
 @pytest.mark.parametrize("n", [1, 12, 24, 100])
 def test_fix_5_a_hedged_count_is_none_the_same_as_unas_doce(n):
-    from tests.test_voice_variantes import en_words, es_words
-    import random
     assert witness(f"Traigo unas {es_words(n, True)} tarimas.").count is None  # what it already did
     for t in HEDGED:
         text = t.format(n=es_words(n, True)).capitalize() + "."
@@ -224,8 +227,8 @@ def test_fix_5_a_hedged_count_is_none_the_same_as_unas_doce(n):
 
 
 @pytest.mark.parametrize("text", ["Traigo doce tarimas. Creo que el sello es MX-48213.",
-                                  "Creo que ya llegué. Traigo doce tarimas.", "Traigo doce tarimas, el sello creo que es "
-                                  "MX-48213."])
+                                  "Creo que ya llegué. Traigo doce tarimas.",
+                                  "Traigo doce tarimas, el sello creo que es MX-48213."])
 def test_fix_5_a_hedge_about_something_else_keeps_the_count(text):
     assert witness(text).count == 12
 
@@ -234,8 +237,9 @@ def test_fix_5_a_hedge_about_something_else_keeps_the_count(text):
 
 GLUED = ["doce paquetes", "dos horas esperando", "cinco minutos", "tres camiones atrás", "diez metros", "seis bolsas",
          "doce en total", "dos de ellas", "once grandes", "uno nada más", "twelve crates", "two hours", "five minutes"]
-CLEAN = ["traigo doce tarimas", "y son de madera", "de la caja", "peso cuatro mil ochocientos kilos", "sin material "
-         "peligroso", "gracias", "y el peso es cuatro mil ochocientos kilos", "es de la caja", "thanks", "eh traigo doce tarimas"]
+CLEAN = ["traigo doce tarimas", "y son de madera", "de la caja", "peso cuatro mil ochocientos kilos",
+         "sin material peligroso", "gracias", "y el peso es cuatro mil ochocientos kilos", "es de la caja", "thanks",
+         "eh traigo doce tarimas"]
 
 
 def test_fix_6_cases_are_in_the_corpus():
@@ -244,9 +248,7 @@ def test_fix_6_cases_are_in_the_corpus():
 
 @pytest.mark.parametrize("clause", GLUED)
 def test_fix_6_a_glued_clause_never_gives_a_longer_id(clause):
-    import random
     rng = random.Random(f"nube-8:glued:{clause}")
-    from tests.test_voice_variantes import ES_0_29
     for _ in range(50):
         digits = "".join(rng.choice("0123456789") for _ in range(rng.randint(3, 8)))
         said = f"traigo doce tarimas el sello es mx guión {' '.join(ES_0_29[int(d)] for d in digits)}"
@@ -265,8 +267,6 @@ def test_fix_6_words_a_number_cannot_count_end_the_seal_cleanly(clause):
 
 
 def test_fix_6_fuzz_the_seal_is_exact_or_none_with_a_reason():
-    import random
-    from tests.test_voice_variantes import ES_0_29
     rng = random.Random("nube-8:fuzz-6")
     vocab = ("doce tarimas paquetes horas minutos dos tres cinco de la el y son traigo peso kilos mil en total sin con "
              "material gracias camiones grandes cajas bultos , . eh pues no perdón").split()
@@ -287,9 +287,9 @@ def test_fix_6_fuzz_the_seal_is_exact_or_none_with_a_reason():
 BETWEEN_ES = ["de la caja es", "que traigo es el", "pues es", "de la caja de atrás es el", "que me dieron es",
               "lo revisé y es", ", el de la caja, es", "de seguridad que trae es"]
 BETWEEN_EN = ["on the trailer is", "we have is", "on the back door is", "they gave me is"]
-IDS = [("MX-48213", "MX-48213"), ("MX guión cuatro ocho dos uno tres", "MX-48213"), ("mx guion cuatro ocho dos uno tres",
-       "MX-48213"), ("eme equis guión cuatro ocho dos uno tres", "MX-48213"), ("cuatro ocho dos uno tres", "48213"),
-       ("doble u equis cuatro ocho dos uno tres", "WX48213")]
+IDS = [("MX-48213", "MX-48213"), ("MX guión cuatro ocho dos uno tres", "MX-48213"),
+       ("mx guion cuatro ocho dos uno tres", "MX-48213"), ("eme equis guión cuatro ocho dos uno tres", "MX-48213"),
+       ("cuatro ocho dos uno tres", "48213"), ("doble u equis cuatro ocho dos uno tres", "WX48213")]
 
 
 def test_fix_7_cases_are_in_the_corpus():
@@ -324,8 +324,8 @@ def test_fix_7_an_id_that_does_not_read_one_way_gives_a_reason(text, why):
 
 @pytest.mark.parametrize("plural", ["sellos", "seals", "precintos", "marchamos", "Sellos"])
 def test_fix_7_a_plural_keyword_is_never_silent(plural):
-    for text in (f"Traigo doce tarimas, los {plural} son MX-48213 y MX-48214.", f"Traigo doce tarimas, {plural} MX-48213.",
-                 f"Traigo doce tarimas y los {plural}."):
+    for text in (f"Traigo doce tarimas, los {plural} son MX-48213 y MX-48214.",
+                 f"Traigo doce tarimas, {plural} MX-48213.", f"Traigo doce tarimas y los {plural}."):
         w = witness(text)
         assert w.seal is None and f"several seals said in transcript: {plural!r}" in w.detail, (text, w.detail)
         assert w.count == 12 and judge(V, D, w, L).reasons == ("SEAL_MISSING voice",)
@@ -340,8 +340,6 @@ def test_fix_7_a_keyword_said_last_is_never_silent(keyword, end):
 
 
 def test_fix_7_fuzz_any_seal_word_anywhere_is_never_silent():
-    import random
-    import re
     rng = random.Random("nube-8:fuzz-7")
     vocab = ("sello sellos seal seals el la de que es is the on caja tráiler trailer cuatro ocho dos uno tres doce "
              "tarimas MX MX-48213 mx guión doble u no roto , . traigo pues eh").split()
