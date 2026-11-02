@@ -143,3 +143,51 @@ def test_fix_3_accepted_cost_a_correction_before_any_number_makes_it_compete():
     # count. The cost, accepted: a number that counts something else competes too. None and the reason, never 12.
     w = witness("Traigo doce tarimas, perdón, tres horas tarde.")
     assert w.count is None and w.detail == "ambiguous counts in transcript: [3, 12] (self-correction: 'perdón')"
+
+
+# --- 4. negated, broken or missing seals ---------------------------------------------------------------------------
+
+DENIED = [  # {s}: the seal as said
+    "el sello no es {s}", "el sello {s} viene roto", "no traigo el sello {s}", "falta el sello {s}",
+    "seal {s} is broken", "seal {s} is missing", "el sello {s} no coincide", "el sello es {s}, no coincide",
+    "the seal is not {s}", "the seal isn't {s}", "there is no seal {s}", "el sello {s} está dañado", "sin sello {s}",
+    "the seal {s} doesn't match", "seal {s} was tampered", "el sello {s} lo traigo abierto", "el sello {s} no corresponde",
+    "missing seal {s}", "broken seal {s}", "el sello está roto, {s}",
+]
+SAID = ["MX-48213", "MX guión cuatro ocho dos uno tres", "mx guion cuatro ocho dos uno tres", "cuatro ocho dos uno tres"]
+
+
+def test_fix_4_cases_are_in_the_corpus():
+    assert len(fix(4)) == 13
+
+
+@pytest.mark.parametrize("template", DENIED)
+@pytest.mark.parametrize("said", SAID)
+def test_fix_4_a_denied_seal_is_never_read(template, said):
+    for text in (f"Traigo doce tarimas, {template.format(s=said)}.", f"{template.format(s=said)}, traigo doce tarimas."):
+        w = witness(text)
+        assert w.seal is None, (text, w.seal)
+        assert "negated seal" in w.detail or "seal reported broken, missing or not matching" in w.detail, (text, w.detail)
+        assert w.count == 12, (text, w.detail)
+        assert judge(V, D, w, L).reasons == ("SEAL_MISSING voice",)
+
+
+@pytest.mark.parametrize("said", ["sello No. MX-48213", "sello no. MX-48213", "sello Nº MX-48213", "sello nro. MX-48213",
+                                  "seal No. MX-48213", "el sello número MX-48213"])
+def test_fix_4_the_abbreviation_no_still_reads(said):
+    w = witness(f"Traigo doce tarimas, {said}.")
+    assert (w.count, w.seal, w.detail) == (12, "MX-48213", ""), w.detail
+    assert judge(V, D, w, L).decision == "ACCEPT"
+
+
+@pytest.mark.parametrize("text,seal,why", [
+    # a negation after a comma is about something else
+    ("Traigo doce tarimas, el sello es MX-48213, no traigo material peligroso.", "MX-48213", ""),
+    ("doce bultos. sello mx guion cuatro ocho dos uno tres. sin material peligroso.", "MX-48213", ""),
+    # accepted cost: with no comma a negation in the 6 words after the id denies it (None and the reason, never a value)
+    ("Traigo doce tarimas, el sello es MX-48213 y no hay material peligroso.", None,
+     "negated seal in transcript: 'sello es mx-48213 y no'"),
+])
+def test_fix_4_a_negation_about_something_else(text, seal, why):
+    w = witness(text)
+    assert (w.count, w.seal, w.detail) == (12, seal, why)

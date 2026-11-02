@@ -304,8 +304,24 @@ _NOT_FILLER = frozenset(
 
 # Seal mentions. Spelled letter names are only the ones that are not also everyday words ("de", "te", "ese", "ve").
 _SEAL_KEYWORDS = frozenset({"sello", "seal", "precinto", "marchamo"})
+# "no" is a lead-in only as the abbreviation "No." ("sello No. MX-48213"); "el sello no es MX-48213" negates it.
 _SEAL_LEAD_IN = frozenset(
-    "number no num nro n nº número numero es is was era dice says reads de del seguridad security el la the ese".split()
+    "number num nro n nº número numero es is was era dice says reads de del seguridad security el la the ese".split()
+)
+# Said of the seal, any of these means it cannot be taken as read: "el sello MX-48213 viene roto", "falta el sello",
+# "seal MX-48213 is missing", "MX-48213, no coincide".
+_SEAL_BAD = frozenset(
+    "roto rota rotos rotas dañado dañada dañados dañadas violado violada violentado violentada forzado forzada abierto "
+    "abierta cortado cortada quebrado quebrada alterado alterada despegado despegada falta faltan faltó falto faltaba "
+    "faltante perdido perdida perdí perdi perdió perdio coincide coinciden corresponde cuadra diferente distinto "
+    "distinta broken damaged tampered cut opened missing lost removed gone match matches mismatch mismatched wrong "
+    "different lacks lacking".split()
+)
+# Words that may stand between a negation and the keyword before it: "no traigo el sello", "there is no seal".
+_SEAL_BEFORE_SKIP = frozenset(
+    "el la los las lo un una the a an any ningún ningun ninguno ninguna su sus mi this that traigo trae traemos tengo "
+    "tiene tienen tenemos hay había habia viene vienen venía venia llevo lleva llevamos has have had got is está esta es "
+    "was there veo vi se le".split()
 )
 _SPELLED = {"be": "B", "ce": "C", "efe": "F", "ge": "G", "hache": "H", "jota": "J", "ka": "K", "ele": "L",
             "eme": "M", "ene": "N", "eñe": "Ñ", "pe": "P", "cu": "Q", "erre": "R", "uve": "V", "equis": "X",
@@ -658,6 +674,63 @@ def _past_correction(toks: list[tuple[str, str]], lows: list[str], i: int) -> tu
     return j, corrected
 
 
+def _negation_at(toks: list[tuple[str, str]], lows: list[str], j: int) -> int:
+    """Length of a negation at j ('no' but not the abbreviation 'No.', 'not', "isn't"), 0 if none."""
+    if lows[j] in _NEGATIONS and not (lows[j] == "no" and _w(lows, j + 1) == "."):
+        return 1
+    if lows[j] in _NEGATED_CONTRACTIONS and j + 1 < len(toks) and toks[j + 1] == ("clitic", "t"):
+        return 2
+    return 0
+
+
+def _negated(phrase: list[str]) -> str:
+    return f"negated seal in transcript: {' '.join(phrase)!r}"
+
+
+def _reported(phrase: list[str]) -> str:
+    return f"seal reported broken, missing or not matching in transcript: {' '.join(phrase)!r}"
+
+
+def _seal_denied_before(toks: list[tuple[str, str]], lows: list[str], k: int) -> str:
+    """'no traigo el sello', 'falta el sello', 'sin sello', "doesn't have a seal": why the seal said at k is denied."""
+    for j in range(k - 1, max(k - 5, -1), -1):
+        if toks[j][0] not in ("word", "clitic"):
+            return ""
+        if lows[j] in _NEGATIONS or (toks[j] == ("clitic", "t") and _w(lows, j - 1) in _NEGATED_CONTRACTIONS):
+            return _negated(lows[j - (lows[j] == "t"):k + 1])
+        if lows[j] in _SEAL_BAD or lows[j] in ("sin", "without"):
+            return _reported(lows[j:k + 1])
+        if lows[j] not in _SEAL_BEFORE_SKIP:
+            return ""
+    return ""
+
+
+def _seal_denied_after(toks: list[tuple[str, str]], lows: list[str], k: int, i: int) -> str:
+    """'el sello MX-48213 viene roto', 'seal MX-48213 is missing', '... no coincide': why the seal said at k is denied,
+    looking from i up to the end of the clause (a stop, a number, another seal) and 6 words at most. A negation counts
+    before a comma only: '..., no traigo material peligroso' is about something else."""
+    comma, words, negated = False, 0, ""
+    j = i - 1
+    while j > k and (toks[j][0] == "comma" or lows[j] in _SPEECH_FILLERS):  # the id reader steps over these
+        comma, j = comma or toks[j][0] == "comma", j - 1
+    for j in range(i, len(toks)):
+        kind, text = toks[j]
+        if kind == "stop" or lows[j] in _SEAL_KEYWORDS or any(ch.isdigit() for ch in text) or (
+                lows[j] not in ("un", "una", "a", "an") and _number_at(lows, j, dozens=False)):
+            break
+        if kind in ("comma", "dash"):
+            comma = comma or kind == "comma"
+            continue
+        if lows[j] in _SEAL_BAD:
+            return _reported(lows[k:j + 1])
+        if not comma and not negated and (n := _negation_at(toks, lows, j)):
+            negated = _negated(lows[k:j + n])
+        words += 1
+        if words >= 6:
+            break
+    return negated
+
+
 def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, str, set[int]]:
     """Every seal mention: (seal or None, why None when one was said, token indices the mentions cover)."""
     values: list[str] = []
@@ -669,11 +742,21 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
         if lows[k] not in _SEAL_KEYWORDS:
             k += 1
             continue
+        before = len(values), len(whys)
+        if denied := _seal_denied_before(toks, lows, k):
+            whys.append(denied)
         i = k + 1
         while i < len(toks) and (toks[i][0] in ("comma", "clitic") or lows[i] in _SEAL_LEAD_IN
+                                 or (lows[i] == "no" and _w(lows, i + 1) == ".")
                                  or (toks[i][1] == "." and lows[i - 1] in ("no", "num", "nro", "n"))):
             i += 1
-        before = len(values), len(whys)
+        if i < len(toks) and (n := _negation_at(toks, lows, i)):  # "el sello no es MX-48213": read only to set aside
+            j = i + n
+            while j < len(toks) and (toks[j][0] == "comma" or lows[j] in _SEAL_LEAD_IN):
+                j += 1
+            if len(whys) == before[1]:
+                whys.append(_negated(lows[k:j]))
+            i = j
         while True:
             value, i, why = _seal_value(toks, lows, i)
             if why:
@@ -692,6 +775,8 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
                 whys.append(f"seal interrupted by {toks[i][1]!r}")
                 break
             i = nxt
+        if len(whys) == before[1] and (denied := _seal_denied_after(toks, lows, k, i)):
+            whys.append(denied)
         if (len(values), len(whys)) == before and k + 1 < len(toks):
             unread.append(" ".join(lows[k:i + 1]))
         covered.update(range(k, i))
