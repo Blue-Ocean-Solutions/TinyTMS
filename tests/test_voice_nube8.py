@@ -51,3 +51,46 @@ def test_fix_1_unpunctuated_holds_and_punctuated_accepts():
 def test_fix_1_no_weight_after_seal_digits_ever_splits(kg):
     w = witness(f"doce bultos sello mx guion cuatro ocho dos uno tres {kg} kilos")
     assert w.seal is None and w.detail.startswith("seal digits run into a weight: "), w.detail
+
+
+# --- 2. lowercase letters only before the first digit; after the id a word ends the seal ----------------------------
+
+AFTER_ID = ["got", "hmm", "ah", "pos", "eh", "mmm", "bye", "pa", "ok", "uh", "so", "the", "I", "i", "and"]
+
+
+def test_fix_2_cases_are_in_the_corpus():
+    assert {c["id"] for c in fix(2)} >= {"en-n8-2-got", "en-n8-2-hmm", "en-n8-2-ah", "es-n8-2-pos", "en-n8-2-seal-is"}
+
+
+@pytest.mark.parametrize("word", AFTER_ID)
+@pytest.mark.parametrize("seal", ["MX-48213", "mx-48213", "mx 48213", "mx guión cuatro ocho dos uno tres"])
+def test_fix_2_a_word_after_the_id_ends_the_seal(seal, word):
+    for text in (f"Seal {seal}, {word}, twelve pallets.", f"seal {seal} {word} twelve pallets"):
+        w = witness(text)
+        assert w.count == 12, (text, w.detail)
+        if w.seal is not None:  # read: the paper's seal, never one with the word's letters glued on
+            assert judge(V, D, w, L).decision == "ACCEPT", (text, w.seal)
+        else:
+            assert "seal" in w.detail, text
+    w = witness(f"Seal {seal}, {word}, twelve pallets.")
+    assert judge(V, D, w, L).decision == "ACCEPT", (w.seal, w.detail)
+
+
+@pytest.mark.parametrize("apostrophe", ["'", "’"])
+def test_fix_2_seals_is_not_smx(apostrophe):
+    for text in (f"The seal{apostrophe}s MX-48213.", f"the seal{apostrophe}s mx 48213", f"The seal{apostrophe}s M X dash "
+                 "four eight two one three, twelve pallets."):
+        w = witness(text)
+        assert w.seal is not None and w.seal.replace("-", "").upper() == "MX48213", (text, w.seal, w.detail)
+
+
+@pytest.mark.parametrize("text", ["the seal s MX-48213", "el sello hoy mx 48213", "el sello es ab mx guión 48213"])
+def test_fix_2_letters_that_do_not_read_one_way_give_a_reason(text):
+    w = witness(text)
+    assert w.seal is None and "unclear seal letters" in w.detail, (w.seal, w.detail)
+
+
+@pytest.mark.parametrize("said,seal", [("m x guión 48213", "MX-48213"), ("mx mx guión 48213", "MX-48213"),
+                                       ("smx smx guión 48213", "SMX-48213"), ("mx guión 48213", "MX-48213")])
+def test_fix_2_prefixes_that_read_one_way_still_read(said, seal):
+    assert witness(f"el sello es {said}").seal == seal

@@ -330,16 +330,21 @@ _TOKEN = re.compile(
 _THOUSANDS = re.compile(r"\d{1,3}(?:[.,]\d{3})+")
 _GROUPED = re.compile(r"\d+(?:[.,]\d+)+")
 _LOW_PUNCT = {"stop": ".", "comma": ",", "dash": "-"}
+_CLITICS = frozenset({"s", "t", "re", "ll", "ve", "d", "m"})
 
 
 def _tokens(text: str) -> list[tuple[str, str]]:
-    """(kind, text) per token. 'twenty-four' splits into words; 'MX-48213' stays one token."""
+    """(kind, text) per token. 'twenty-four' splits into words; 'MX-48213' stays one token. The 's' of "seal's" (and
+    the 't' of "don't") is a 'clitic': never a seal letter."""
     out: list[tuple[str, str]] = []
     for m in _TOKEN.finditer(text):
         kind, t = m.lastgroup or "", m.group()
         parts = [p for p in re.split(r"[-‐]", t) if p]
         if kind == "word" and len(parts) > 1 and all(p.lower() in _NUMBER_WORDS for p in parts):
             out += [("word", p) for p in parts]
+        elif kind == "word" and t.lower() in _CLITICS and m.start() >= 2 and text[m.start() - 1] in "'’" and (
+                text[m.start() - 2].isalnum()):
+            out.append(("clitic", t))
         else:
             out.append((kind, t))
     return out
@@ -488,24 +493,44 @@ def _unclear_pair(last: str, first: str) -> bool:
 # --- seal --------------------------------------------------------------------------------------
 
 
+def _letters(toks: list[tuple[str, str]], lows: list[str], j: int) -> bool:
+    t = toks[j][1]
+    return toks[j][0] == "word" and len(t) <= 3 and t.isascii() and t.isalpha() and t.islower() and (
+        lows[j] not in _NOT_SEAL_LETTERS)
+
+
 def _lowercase_letters(toks: list[tuple[str, str]], lows: list[str], i: int) -> bool:
     """Is the token at i a seal's letters written lowercase: up to 3 ASCII letters, not a function word, with a dash or
-    digits after it (past more such letters: 'm x guión', the stutter 'mx mx guión')?"""
-    def letters(j: int) -> bool:
-        t = toks[j][1]
-        return toks[j][0] == "word" and len(t) <= 3 and t.isascii() and t.isalpha() and t.islower() and (
-            lows[j] not in _NOT_SEAL_LETTERS)
-
-    if not letters(i):
+    digits after it (past more such letters: 'm x guión', the stutter 'mx mx guión')? Only before the seal's first
+    digit: after it, a lowercase word ends the seal ('MX-48213, got twelve pallets')."""
+    if not _letters(toks, lows, i):
         return False
     for j in range(i + 1, len(toks)):
         kind, text = toks[j]
         if kind == "dash" or lows[j] in _SEAL_DASH or any(ch.isdigit() for ch in text) or (
                 lows[j] not in ("un", "una") and _number_at(lows, j, dozens=False)):
             return True
-        if not (letters(j) or lows[j] in _SPELLED or kind == "comma" or lows[j] in _SPEECH_FILLERS):
+        if not (_letters(toks, lows, j) or lows[j] in _SPELLED or kind == "comma" or lows[j] in _SPEECH_FILLERS):
             return False
     return False
+
+
+def _unclear_lowercase_prefix(toks: list[tuple[str, str]], lows: list[str], i: int) -> str:
+    """The lowercase letter groups from i to the digits read one way ('mx', 'm x', the stutter 'mx mx'): ''. Else what
+    was said: two different groups ('hoy mx 48213'), or letters glued onto an id that has its own ('s MX-48213')."""
+    groups, j = [], i
+    while j < len(toks):
+        if _letters(toks, lows, j):
+            groups.append(lows[j])
+        elif not (toks[j][0] == "comma" or lows[j] in _SPEECH_FILLERS or lows[j] in _SPELLED):
+            break
+        j += 1
+    nxt = toks[j][1] if j < len(toks) else ""
+    glued = j < len(toks) and toks[j][0] == "word" and any(ch.isalpha() for ch in nxt) and (
+        lows[j] not in _SEAL_DASH and not _number_at(lows, j, dozens=False))
+    if glued or (len(set(groups)) > 1 and any(len(g) > 1 for g in groups)):
+        return " ".join(lows[i:j + 1])
+    return ""
 
 
 def _seal_like(toks: list[tuple[str, str]], lows: list[str], i: int) -> bool:
@@ -525,10 +550,12 @@ def _seal_like(toks: list[tuple[str, str]], lows: list[str], i: int) -> bool:
 def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[str, int, str]:
     """Read one seal id from token i: (id, index of the token that ended it, why it is unreadable or '')."""
     out: list[str] = []
+    lower = False  # a lowercase letter group already read
     while i < len(toks):
         kind, text = toks[i]
         low = lows[i]
-        if kind == "stop":
+        digits = any(ch.isdigit() for ch in "".join(out))
+        if kind in ("stop", "clitic"):
             break
         if kind == "comma" or low in _SPEECH_FILLERS:
             i += 1
@@ -584,8 +611,13 @@ def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[s
             out.append(_SPELLED[low])
             i += 1
             continue
-        if _lowercase_letters(toks, lows, i):
+        if not digits and _lowercase_letters(toks, lows, i):
+            if not lower and (unclear := _unclear_lowercase_prefix(toks, lows, i)):
+                return "", i, f"unclear seal letters: {unclear!r}"
+            lower = True
             text = text.upper()  # "mx guión cuatro ..." reads as "MX guión cuatro ..."
+        if digits and text == "I":
+            break  # "Seal MX-48213 I have twelve pallets": the English pronoun, not a letter of the seal
         if text not in _NOT_SEAL and re.fullmatch(r"[A-Za-z0-9\-]+", text) and (
                 any(ch.isdigit() for ch in text) or (text.isupper() and len(text) <= 3)):
             # "MX MX guión ..." (real transcript): a letter group repeated back to back is one ASR stutter.
@@ -611,7 +643,7 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
             k += 1
             continue
         i = k + 1
-        while i < len(toks) and (toks[i][0] == "comma" or lows[i] in _SEAL_LEAD_IN
+        while i < len(toks) and (toks[i][0] in ("comma", "clitic") or lows[i] in _SEAL_LEAD_IN
                                  or (toks[i][1] == "." and lows[i - 1] in ("no", "num", "nro", "n"))):
             i += 1
         before = len(values), len(whys)
