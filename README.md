@@ -237,7 +237,7 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
   They are not an accuracy benchmark. The SYNTHETIC-TTS Spanish voice note (macOS voice, not a person) behind the
   three real transcripts was withdrawn for its license (`evals/PROCEDENCIA.md`); its receipts and transcripts stay.
   There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
-  Beyond those it is tested on a hand-written SYNTHETIC corpus of 62 cases (`tests/data/voice-es-variantes.json`: number words,
+  Beyond those it is tested on a hand-written SYNTHETIC corpus of 123 cases (`tests/data/voice-es-variantes.json`: number words,
   "docena", spelled letters, "guión"/"raya", seals said as one number) and on generated number words. When the
   driver corrects a count ("doce… no, trece"), gives two ("doce o trece"), hedges ("unas doce"), negates it or says
   number words that do not read one way ("veinte cuatro"), the count is None and `detail` says why; a corrected or
