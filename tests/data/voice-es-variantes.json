@@ -1,6 +1,6 @@
 {
  "provenance": "SYNTHETIC hand-written",
- "note": "Written by hand on 2026-10-29 (lane Nube-3) to exercise tinytms.adapters.voice_from_transcript. Not ASR output, not a person's voice. 'meant' is what the speaker meant (null: the speaker did not say one clear value); 'expect' is what the parser must return. 'expect' is either 'meant' or null, never another value. 'detail' is a substring the witness detail must carry when the count is null.",
+ "note": "Written by hand on 2026-10-29 (lane Nube-3) to exercise tinytms.adapters.voice_from_transcript. Not ASR output, not a person's voice. 'meant' is what the speaker meant (null: the speaker did not say one clear value); 'expect' is what the parser must return. 'expect' is either 'meant' or null, never another value. 'detail' is a substring the witness detail must carry when the count is null. 'seal_detail' is a substring the witness detail must carry when the seal is null; a null seal on a transcript that names a seal always says why. The 'n8' cases were added on 2026-11-02 (ORDER Nube-8), one group per numbered fix.",
  "cases": [
   {"id": "es-doce-tarimas", "text": "Traigo doce tarimas.", "meant": {"count": 12, "seal": null}, "expect": {"count": 12, "seal": null}},
   {"id": "es-digitos", "text": "Son 12 pallets.", "meant": {"count": 12, "seal": null}, "expect": {"count": 12, "seal": null}},
@@ -63,6 +63,8 @@
   {"id": "en-seal-dash", "text": "Seal is M X dash four eight two one three.", "meant": {"count": null, "seal": "MX-48213"}, "expect": {"count": null, "seal": "MX-48213"}},
   {"id": "en-seal-groups", "text": "Seal number forty eight two thirteen.", "meant": {"count": null, "seal": "48213"}, "expect": {"count": null, "seal": "48213"}},
   {"id": "en-seal-then-count", "text": "The seal is M X four eight two one three, twelve pallets.", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": "MX48213"}},
-  {"id": "en-seal-oh", "text": "Seal M X four oh two one three.", "meant": {"count": null, "seal": "MX-40213"}, "expect": {"count": null, "seal": "MX40213"}}
+  {"id": "en-seal-oh", "text": "Seal M X four oh two one three.", "meant": {"count": null, "seal": "MX-40213"}, "expect": {"count": null, "seal": "MX40213"}},
+  {"id": "es-n8-1-peso-sin-punto", "text": "doce bultos sello mx guion cuatro ocho dos uno tres cuatro mil ochocientos kilos sin material peligroso", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": null}, "seal_detail": "seal digits run into a weight: 'cuatro ocho dos uno tres cuatro mil ochocientos kilos'"},
+  {"id": "es-n8-1-peso-con-punto", "text": "doce bultos sello mx guion cuatro ocho dos uno tres. Cuatro mil ochocientos kilos, sin material peligroso.", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": "MX-48213"}}
  ]
 }

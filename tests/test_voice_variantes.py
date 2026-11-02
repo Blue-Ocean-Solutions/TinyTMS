@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,7 @@ CORPUS_PATH = Path(__file__).resolve().parent / "data" / "voice-es-variantes.jso
 CORPUS = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
 CASES = CORPUS["cases"]
 SEED = 20261029
+SEAL_WORD = re.compile(r"\b(sellos?|seals?|precintos?|marchamos?)\b", re.IGNORECASE)
 
 
 def witness(text: str):
@@ -60,6 +62,10 @@ def test_corpus_case(case):
     if w.count is None:
         assert w.detail, "a missing count always says why"
         assert case.get("detail", "") in w.detail, w.detail
+    if w.seal is None and SEAL_WORD.search(case["text"]):
+        assert "seal" in w.detail, "a seal said and not read always says why"
+        assert case.get("seal_detail", "") in w.detail, w.detail
+    assert "seal_detail" not in case or w.seal is None, "seal_detail pins a reason, so the seal must be None"
     assert parse_count(case["text"])[0] == w.count and parse_seal(case["text"]) == w.seal
 
 

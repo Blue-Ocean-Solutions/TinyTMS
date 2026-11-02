@@ -5,7 +5,9 @@ The local ASR (Omnilingual CTC) writes lowercase Spanish with no punctuation and
 that seal came back None with an empty detail: lost, and nothing said why. The rule now, in seal position only: a
 lowercase group of up to 3 ASCII letters is a seal's letters when a dash or digits follow it, and it comes out
 uppercased. Function words ("es", "de", "y", ...) never are. A seal said with no id read always says why, and the
-judge HOLDs on it. With no stop before it, a weight right after digits said one by one is split off as the weight.
+judge HOLDs on it. Digits said one by one and a weight with no stop between them read two ways ("... uno tres cuatro
+mil ochocientos kilos": 48213 and 4800 kg, or 482134 and 1800 kg), so no seal comes out and the detail says why
+(ORDER Nube-8 dropped the split that guessed the first reading).
 """
 
 from __future__ import annotations
@@ -58,11 +60,13 @@ ORDER_A = "doce bultos sello {mx} {dash} cuatro ocho dos uno tres cuatro mil och
 
 @pytest.mark.parametrize("dash", ["guión", "guion"])
 def test_lowercase_sentence_gives_what_the_uppercase_one_gives(dash):
+    # No stop between the seal and the weight: two readings, so no seal, a reason, and HOLD (lowercase or not).
     low, up = witness(ORDER_A.format(mx="mx", dash=dash)), witness(ORDER_A.format(mx="MX", dash=dash))
-    assert (low.count, low.seal, low.detail) == (up.count, up.seal, up.detail) == (12, "MX-48213", "")
+    assert (low.count, low.seal, low.detail) == (up.count, up.seal, up.detail) == (
+        12, None, "seal digits run into a weight: 'cuatro ocho dos uno tres cuatro mil ochocientos kilos'")
     vl, vu = judge(V, D, low, L), judge(V, D, up, L)
     assert vl == vu
-    assert vl.decision == "ACCEPT" and set(vl.checks.values()) == {"pass"}
+    assert vl.decision == "HOLD" and vl.reasons == ("SEAL_MISSING voice",)
 
 
 @pytest.mark.parametrize("dash", ["guión", "guion"])
@@ -93,16 +97,23 @@ def test_generated_seals_in_lowercase():
 
 # --- a weight right after the seal, no stop between them (as the local ASR writes) ---------------------------------
 
+WEIGHT_AFTER_DIGITS = [
+    ("doce bultos sello mx guion cuatro ocho dos uno tres", "4800 kilos", "MX-48213"),
+    ("doce bultos sello mx 48213", "cuatro mil ochocientos kg", "MX48213"),
+    ("doce bultos sello mx guion cuatro ocho dos uno tres", "cinco toneladas", "MX-48213"),
+    ("doce bultos sello mx guion cuatro ocho dos uno tres", "cuarenta y ocho kilos", "MX-48213"),
+    ("twelve pallets seal mx dash four eight two one three", "four thousand eight hundred pounds", "MX-48213"),
+]
 
-@pytest.mark.parametrize("text,seal", [
-    ("doce bultos sello mx guion cuatro ocho dos uno tres 4800 kilos", "MX-48213"),
-    ("doce bultos sello mx 48213 cuatro mil ochocientos kg", "MX48213"),
-    ("doce bultos sello mx guion cuatro ocho dos uno tres cinco toneladas", "MX-48213"),
-    ("doce bultos sello mx guion cuatro ocho dos uno tres cuarenta y ocho kilos", "MX-48213"),
-    ("twelve pallets seal mx dash four eight two one three four thousand eight hundred pounds", "MX-48213"),
-])
-def test_digits_said_one_by_one_then_a_weight_split_at_the_weight(text, seal):
-    w = witness(text)
+
+@pytest.mark.parametrize("seal_part,weight,seal", WEIGHT_AFTER_DIGITS)
+def test_digits_then_a_weight_with_no_stop_read_no_seal(seal_part, weight, seal):
+    w = witness(f"{seal_part} {weight}")
+    assert (w.count, w.seal) == (12, None), w.detail
+    assert w.detail.startswith("seal digits run into a weight: "), w.detail
+    assert judge(V, D, w, L).reasons == ("SEAL_MISSING voice",)
+    # a stop before the weight reads one way: the seal
+    w = witness(f"{seal_part}. {weight}")
     assert (w.count, w.seal, w.detail) == (12, seal, ""), w.detail
 
 
@@ -110,22 +121,23 @@ def test_generated_digit_seals_followed_by_a_weight():
     rng = random.Random("nube-7:weight")
     for _ in range(1000):
         digits = "".join(rng.choice("0123456789") for _ in range(rng.randint(3, 8)))
-        kg = rng.choice([rng.randint(1, 999), rng.randint(2000, 30000)])  # 1000-1999: see the test below
-        text = f"doce tarimas sello mx guion {' '.join(ES_0_29[int(d)] for d in digits)} {es_words(kg)} kilos"
-        w = witness(text)
-        assert (w.count, w.seal, w.detail) == (12, f"MX-{digits}", ""), text
+        kg = rng.choice([rng.randint(1, 999), rng.randint(1000, 30000)])
+        said = f"doce tarimas sello mx guion {' '.join(ES_0_29[int(d)] for d in digits)}"
+        w = witness(f"{said} {es_words(kg)} kilos")
+        assert (w.count, w.seal) == (12, None) and "seal digits run into a weight" in w.detail, (said, kg)
+        w = witness(f"{said}. {es_words(kg)} kilos")
+        assert (w.count, w.seal, w.detail) == (12, f"MX-{digits}", ""), (said, kg)
 
 
-def test_the_accepted_cost_of_the_split():
-    # "<digit> mil ..." right after the seal's digits is read as the weight's thousands (accepted, 2026-11-02): it is
-    # how "cuatro mil ochocientos kilos" is said, and the local ASR writes no stop before it. The cost: a driver who
-    # meant the seal's last digit and then "mil ochocientos" (1800 kg) gets the seal one digit short. Against the
-    # paper that HOLDs; it could only ACCEPT against a paper whose seal is that one digit short too.
-    assert parse_seal("sello mx guion cuatro ocho dos uno tres cuatro mil ochocientos kilos") == "MX-48213"
-    w = witness("doce tarimas sello mx guion cuatro ocho dos uno tres mil ochocientos kilos")
-    assert w.seal == "MX-4821"
+@pytest.mark.parametrize("text", [
+    "doce tarimas sello mx guion cuatro ocho dos uno tres cuatro mil ochocientos kilos",  # 48213 + 4800, 482134 + 1800
+    "doce tarimas sello mx guion cuatro ocho dos uno tres mil ochocientos kilos",  # 48213 + 1800, 4821 + 3800
+])
+def test_both_readings_of_a_seal_running_into_a_weight_hold(text):
+    w = witness(text)
+    assert w.seal is None and "seal digits run into a weight" in w.detail, w.detail
     v = judge(V, D, w, L)
-    assert v.decision == "HOLD" and v.reasons == ("SEAL_MISMATCH doc=MX48213 voice=MX4821",)
+    assert v.decision == "HOLD" and v.reasons == ("SEAL_MISSING voice",)
 
 
 @pytest.mark.parametrize("text", [
@@ -137,7 +149,7 @@ def test_the_accepted_cost_of_the_split():
 ])
 def test_digits_that_do_not_split_cleanly_read_no_seal(text):
     w = witness(text)
-    assert w.seal is None and "seal digits run into a count" in w.detail, w.detail
+    assert w.seal is None and "seal digits run into a" in w.detail, w.detail
 
 
 # --- (b) the forms a seal comes in ---------------------------------------------------------------------------------
