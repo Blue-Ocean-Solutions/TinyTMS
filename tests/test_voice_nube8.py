@@ -228,3 +228,55 @@ def test_fix_5_a_hedged_count_is_none_the_same_as_unas_doce(n):
                                   "MX-48213."])
 def test_fix_5_a_hedge_about_something_else_keeps_the_count(text):
     assert witness(text).count == 12
+
+
+# --- 6. a clause glued onto the seal's digits ----------------------------------------------------------------------
+
+GLUED = ["doce paquetes", "dos horas esperando", "cinco minutos", "tres camiones atrás", "diez metros", "seis bolsas",
+         "doce en total", "dos de ellas", "once grandes", "uno nada más", "twelve crates", "two hours", "five minutes"]
+CLEAN = ["traigo doce tarimas", "y son de madera", "de la caja", "peso cuatro mil ochocientos kilos", "sin material "
+         "peligroso", "gracias", "y el peso es cuatro mil ochocientos kilos", "es de la caja", "thanks", "eh traigo doce tarimas"]
+
+
+def test_fix_6_cases_are_in_the_corpus():
+    assert len(fix(6)) == 6
+
+
+@pytest.mark.parametrize("clause", GLUED)
+def test_fix_6_a_glued_clause_never_gives_a_longer_id(clause):
+    import random
+    rng = random.Random(f"nube-8:glued:{clause}")
+    from tests.test_voice_variantes import ES_0_29
+    for _ in range(50):
+        digits = "".join(rng.choice("0123456789") for _ in range(rng.randint(3, 8)))
+        said = f"traigo doce tarimas el sello es mx guión {' '.join(ES_0_29[int(d)] for d in digits)}"
+        w = witness(f"{said} {clause}")
+        assert w.seal is None and w.detail.startswith("seal digits run into the next words: "), (said, w.detail)
+        assert w.count == 12
+        for sep in (", ", ". "):  # with a comma or a stop the clause is apart: the seal reads, exactly
+            w = witness(f"{said}{sep}{clause}")
+            assert w.seal == f"MX-{digits}", (said, sep, w.seal, w.detail)
+
+
+@pytest.mark.parametrize("clause", CLEAN)
+def test_fix_6_words_a_number_cannot_count_end_the_seal_cleanly(clause):
+    w = witness(f"doce tarimas el sello es mx guión cuatro ocho dos uno tres {clause}")
+    assert (w.seal, w.count) == ("MX-48213", 12), w.detail
+
+
+def test_fix_6_fuzz_the_seal_is_exact_or_none_with_a_reason():
+    import random
+    from tests.test_voice_variantes import ES_0_29
+    rng = random.Random("nube-8:fuzz-6")
+    vocab = ("doce tarimas paquetes horas minutos dos tres cinco de la el y son traigo peso kilos mil en total sin con "
+             "material gracias camiones grandes cajas bultos , . eh pues no perdón").split()
+    for _ in range(3000):
+        digits = "".join(rng.choice("0123456789") for _ in range(rng.randint(3, 8)))
+        tail = " ".join(rng.choice(vocab) for _ in range(rng.randint(1, 6)))
+        first = next((t for t in tail.split() if t not in (",", "eh", "pues")), "")  # fillers are pauses in an id
+        if first in ("doce", "dos", "tres", "cinco", "mil"):  # a number said next is the seal's own digits ("...
+            continue  # cuatro dos" is ...42) unless a noun follows it: that is test_fix_6_a_glued_clause_...
+        text = f"el sello es mx guión {' '.join(ES_0_29[int(d)] for d in digits)} {tail}"
+        w = witness(text)
+        assert w.seal in (None, f"MX-{digits}"), (text, w.seal)
+        assert w.seal is not None or "seal" in w.detail, text

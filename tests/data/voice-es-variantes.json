@@ -104,6 +104,12 @@
   {"id": "en-n8-5-i-think", "text": "I think twelve pallets.", "meant": {"count": null, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "hedged count in transcript: 'i think twelve pallets'"},
   {"id": "es-n8-5-creo-despues", "text": "Traigo doce tarimas, creo.", "meant": {"count": null, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "hedged count in transcript: 'doce tarimas , creo'"},
   {"id": "en-n8-5-i-think-after", "text": "Twelve pallets, I think.", "meant": {"count": null, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "hedged count in transcript: 'twelve pallets , i think'"},
-  {"id": "es-n8-5-creo-del-sello", "text": "Traigo doce tarimas. Creo que el sello es MX-48213.", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": "MX-48213"}}
+  {"id": "es-n8-5-creo-del-sello", "text": "Traigo doce tarimas. Creo que el sello es MX-48213.", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": "MX-48213"}},
+  {"id": "es-n8-6-doce-paquetes", "text": "traigo doce tarimas el sello es mx guión cuatro ocho dos uno tres doce paquetes", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": null}, "seal_detail": "seal digits run into the next words: 'cuatro ocho dos uno tres doce paquetes'"},
+  {"id": "es-n8-6-dos-horas", "text": "traigo doce tarimas el sello es mx guión cuatro ocho dos uno tres dos horas esperando", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": null}, "seal_detail": "seal digits run into the next words: 'cuatro ocho dos uno tres dos horas'"},
+  {"id": "es-n8-6-cinco-minutos", "text": "traigo doce tarimas el sello es mx guión cuatro ocho dos uno tres cinco minutos", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": null}, "seal_detail": "seal digits run into the next words: 'cuatro ocho dos uno tres cinco minutos'"},
+  {"id": "es-n8-6-coma-dos-horas", "text": "Traigo doce tarimas, el sello es MX guión cuatro ocho dos uno tres, dos horas esperando.", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": "MX-48213"}},
+  {"id": "es-n8-6-sin-material", "text": "doce bultos sello mx guion cuatro ocho dos uno tres sin material peligroso", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": "MX-48213"}},
+  {"id": "en-n8-6-thirteen-boxes-glued", "text": "seal four eight two one three thirteen crates on board", "meant": {"count": null, "seal": "48213"}, "expect": {"count": null, "seal": null}, "seal_detail": "seal digits run into the next words: 'four eight two one three thirteen crates'"}
  ]
 }

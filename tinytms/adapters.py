@@ -345,6 +345,16 @@ _NOT_SEAL_LETTERS = frozenset(
     "muy tan mas ese esa eso ok oh "
     "an and are as at by do for go has i if in is it its of on or per so the to up us was we yes".split()
 ) | _WEIGHT_UNITS | _SPEECH_FILLERS
+_LETTER_PAIRS = {("doble", "ve"): "W", ("doble", "uve"): "W", ("uve", "doble"): "W", ("i", "griega"): "Y"}
+# Words that can follow a seal's last digit without being counted by it: "... uno tres traigo doce tarimas", "... tres
+# y son de madera", "... tres de la caja", "... tres peso cuatro mil ...", "... tres sin material peligroso". Any other
+# word right after digits said in a run ("... uno tres doce paquetes", "... tres dos horas esperando") may be counted
+# by the last number, so the id does not read one way.
+_ENDS_SEAL = frozenset(
+    "el la lo los las the pero but que traigo llevo tengo cargo cargué cargue entrego hay es está esta era fue viene "
+    "trae tiene lleva estaba is was has does did seems looks i we it ok okay gracias thanks thank please bueno listo "
+    "repito peso weight sin without del".split()
+)
 _DIGIT_OF = {w: str(v) for w, v in (*_ES_ONES.items(), *_EN_ONES.items(), ("cero", 0), ("zero", 0))
              if w not in ("un", "una")}
 
@@ -575,6 +585,22 @@ def _seal_like(toks: list[tuple[str, str]], lows: list[str], i: int) -> bool:
     )
 
 
+def _continues_seal(toks: list[tuple[str, str]], lows: list[str], j: int) -> bool:
+    """Would the word at j be read as more of the id right after its digits ('guión', 'oh', 'doble ocho', 'AB')?"""
+    w, nxt, text = lows[j], _w(lows, j + 1), toks[j][1]
+    return w in _SPELLED or w in _SEAL_DASH or w == "oh" or (w in ("doble", "double", "triple") and nxt in _DIGIT_OF) or (
+        (w, nxt) in _LETTER_PAIRS or any(ch.isdigit() for ch in text) or (
+            text.isupper() and text.isalpha() and len(text) <= 3 and text not in _NOT_SEAL and text != "I"))
+
+
+def _ends_seal(lows: list[str], j: int) -> bool:
+    """Does the word at j end a seal's digits cleanly (it cannot be what the last number counts)?"""
+    w = lows[j]
+    return (w in _ENDS_SEAL or w in _NEGATIONS or w in _NEGATED_CONTRACTIONS or w in _SPEECH_FILLERS
+            or w in _SEAL_KEYWORDS or w in _ALTERNATIVES or bool(_phrase_at(lows, j, _CORRECTIONS))
+            or (w == "de" and _w(lows, j + 1) in ("la", "el")))
+
+
 def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[str, int, str]:
     """Read one seal id from token i: (id, index of the token that ended it, why it is unreadable or '')."""
     out: list[str] = []
@@ -600,12 +626,8 @@ def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[s
             out.append(_DIGIT_OF[nxt] * (3 if low == "triple" else 2))
             i += 2
             continue
-        if (low, nxt) in (("doble", "ve"), ("doble", "uve"), ("uve", "doble")):
-            out.append("W")
-            i += 2
-            continue
-        if (low, nxt) == ("i", "griega"):
-            out.append("Y")
+        if (low, nxt) in _LETTER_PAIRS:
+            out.append(_LETTER_PAIRS[low, nxt])
             i += 2
             continue
         if low == "oh" and out and out[-1][-1:].isdigit():  # "four oh two"
@@ -629,6 +651,11 @@ def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[s
                 # 482134 and 1800 kg), so no seal; a stop before the weight ("... uno tres. Cuatro mil ...") reads one.
                 what = "a weight" if after in _WEIGHT_UNITS else "a count"
                 return "", i, f"seal digits run into {what}: {' '.join(lows[i:j + 1])!r}"
+            if j < len(toks) and toks[j][0] == "word" and not _continues_seal(toks, lows, j) and not (
+                    _ends_seal(lows, j)):
+                if len(groups) == 1 and digits:
+                    break  # "MX-48213 dos horas esperando": the number goes with the words after it
+                return "", i, f"seal digits run into the next words: {' '.join(lows[i:j + 1])!r}"
             for (_, _, e), (_, s, _) in zip(groups, groups[1:]):
                 if _unclear_pair(lows[e - 1], lows[s]):
                     return "", j, f"unclear seal digits: {lows[e - 1] + ' ' + lows[s]!r}"
