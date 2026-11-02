@@ -359,3 +359,12 @@ def test_fix_7_a_correction_after_the_keyword_is_never_taken_for_the_id(text):
     w = witness(text)
     assert w.count is None and "self-correction" in w.detail, w.detail
     assert w.seal is None and "seal" in w.detail
+
+
+@pytest.mark.parametrize("tail,why", [
+    ("buenas tardes", "'cuatro ocho dos uno tres buenas'"), ("en el andén cuatro", "'cuatro ocho dos uno tres en'")])
+def test_fix_6_accepted_cost_a_word_off_the_clean_list_gives_none(tail, why):
+    # Accepted cost: only words a number cannot count end the digits cleanly; any other word glued on gives None and
+    # the reason, never the seal (and never a longer one).
+    w = witness(f"doce tarimas el sello es mx guión cuatro ocho dos uno tres {tail}")
+    assert (w.count, w.seal, w.detail) == (12, None, f"seal digits run into the next words: {why}")
