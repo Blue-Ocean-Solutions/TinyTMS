@@ -94,3 +94,52 @@ def test_fix_2_letters_that_do_not_read_one_way_give_a_reason(text):
                                        ("smx smx guión 48213", "SMX-48213"), ("mx guión 48213", "MX-48213")])
 def test_fix_2_prefixes_that_read_one_way_still_read(said, seal):
     assert witness(f"el sello es {said}").seal == seal
+
+
+# --- 3. self-corrections with words in between ----------------------------------------------------------------------
+
+BETWEEN = ["", ", eh,", ", este,", " eh", ", uh,", " espérame", " a ver", ", a ver,", " hmm", ", pues,", " oye"]
+
+
+def test_fix_3_cases_are_in_the_corpus():
+    assert len(fix(3)) == 11
+
+
+@pytest.mark.parametrize("between", BETWEEN)
+@pytest.mark.parametrize("marker", ["no", "perdón", "digo", "mejor", "me equivoqué", "sorry", "make it", "I mean"])
+def test_fix_3_a_correction_with_words_between_never_keeps_either_count(marker, between):
+    for a, b in ((12, 13), (13, 12), (4, 40)):
+        from tests.test_voice_variantes import en_words, es_words
+        import random
+        wa, wb = es_words(a, True), es_words(b, True)
+        for text in (f"Traigo {wa} tarimas, {marker}{between} {wb}.", f"Traigo {wa} tarimas {marker}{between} {wb}",
+                     f"Traigo {wa} tarimas, {marker}{between} {wb} en total.",
+                     f"{en_words(a, random.Random(a))} pallets, {marker}{between} {en_words(b, random.Random(b))}."):
+            w = witness(text)
+            assert w.count is None, (text, w.detail)
+            assert f"ambiguous counts in transcript: {sorted({a, b})}" in w.detail and "self-correction" in w.detail, (
+                text, w.detail)
+
+
+@pytest.mark.parametrize("chain", ["no, perdón,", "no, eh, perdón,", "me equivoqué, es", "perdón, a ver,", "sorry, it's",
+                                   "no, no, perdón, es el", "mejor dicho,", "o sea, eh,"])
+@pytest.mark.parametrize("second", ["MX cuatro ocho dos tres uno", "cuatro ocho dos tres uno", "MX-48231"])
+def test_fix_3_a_corrected_seal_is_never_resolved(chain, second):
+    for first in ("MX cuatro ocho dos uno tres", "MX-48213", "mx guión cuatro ocho dos uno tres"):
+        text = f"Traigo doce tarimas. El sello es {first}, {chain} {second}."
+        w = witness(text)
+        assert w.seal is None and "seals disagree in transcript" in w.detail, (text, w.seal, w.detail)
+        assert w.count == 12, (text, w.detail)
+        assert judge(V, D, w, L).reasons == ("SEAL_MISSING voice",)
+
+
+def test_fix_3_the_same_seal_said_twice_across_a_correction_still_reads():
+    w = witness("El sello es MX cuatro ocho dos uno tres, no, perdón, MX cuatro ocho dos uno tres.")
+    assert w.seal == "MX48213"
+
+
+def test_fix_3_accepted_cost_a_correction_before_any_number_makes_it_compete():
+    # A correction before a number makes it compete whatever follows it, so "trece en total" and "trece completas"
+    # count. The cost, accepted: a number that counts something else competes too. None and the reason, never 12.
+    w = witness("Traigo doce tarimas, perdón, tres horas tarde.")
+    assert w.count is None and w.detail == "ambiguous counts in transcript: [3, 12] (self-correction: 'perdón')"

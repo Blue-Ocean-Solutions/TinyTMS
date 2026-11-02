@@ -73,6 +73,17 @@
   {"id": "en-n8-2-seal-is", "text": "The seal's MX-48213, twelve pallets.", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": "MX-48213"}},
   {"id": "en-n8-2-pronoun-i", "text": "Seal MX-48213 I have twelve pallets.", "meant": {"count": 12, "seal": "MX-48213"}, "expect": {"count": 12, "seal": "MX-48213"}},
   {"id": "es-n8-2-hoy-mx", "text": "el sello hoy mx 48213", "meant": {"count": null, "seal": "MX-48213"}, "expect": {"count": null, "seal": null}, "seal_detail": "unclear seal letters: 'hoy mx 48213'"},
-  {"id": "en-n8-2-s-glued", "text": "the seal s MX-48213", "meant": {"count": null, "seal": "MX-48213"}, "expect": {"count": null, "seal": null}, "seal_detail": "unclear seal letters: 's mx-48213'"}
+  {"id": "en-n8-2-s-glued", "text": "the seal s MX-48213", "meant": {"count": null, "seal": "MX-48213"}, "expect": {"count": null, "seal": null}, "seal_detail": "unclear seal letters: 's mx-48213'"},
+  {"id": "es-n8-3-no-eh", "text": "Traigo doce tarimas, no, eh, trece.", "meant": {"count": 13, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "ambiguous counts in transcript: [12, 13] (self-correction: 'no')"},
+  {"id": "es-n8-3-no-este", "text": "Traigo doce tarimas, no, este, trece.", "meant": {"count": 13, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "ambiguous counts in transcript: [12, 13] (self-correction: 'no')"},
+  {"id": "en-n8-3-sorry-uh", "text": "Twelve pallets, sorry, uh, thirteen.", "meant": {"count": 13, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "ambiguous counts in transcript: [12, 13] (self-correction: 'sorry')"},
+  {"id": "es-n8-3-esperame", "text": "Traigo doce tarimas no espérame trece", "meant": {"count": 13, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "ambiguous counts in transcript: [12, 13] (self-correction: 'no')"},
+  {"id": "es-n8-3-a-ver", "text": "Traigo doce tarimas no a ver trece", "meant": {"count": 13, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "ambiguous counts in transcript: [12, 13] (self-correction: 'no')"},
+  {"id": "es-n8-3-en-total", "text": "Traigo doce tarimas, no, trece en total.", "meant": {"count": 13, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "ambiguous counts in transcript: [12, 13] (self-correction: 'no')"},
+  {"id": "es-n8-3-completas", "text": "Traigo doce tarimas, perdón, trece completas.", "meant": {"count": 13, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "ambiguous counts in transcript: [12, 13] (self-correction: 'perdón')"},
+  {"id": "en-n8-3-make-it", "text": "Twelve pallets, make it thirteen.", "meant": {"count": 13, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "ambiguous counts in transcript: [12, 13] (self-correction: 'make it')"},
+  {"id": "es-n8-3-mejor", "text": "Traigo doce tarimas, mejor trece.", "meant": {"count": 13, "seal": null}, "expect": {"count": null, "seal": null}, "detail": "ambiguous counts in transcript: [12, 13] (self-correction: 'mejor')"},
+  {"id": "es-n8-3-sello-no-perdon", "text": "El sello es MX cuatro ocho dos uno tres, no, perdón, MX cuatro ocho dos tres uno.", "meant": {"count": null, "seal": "MX-48231"}, "expect": {"count": null, "seal": null}, "detail": "no count found in transcript", "seal_detail": "seals disagree in transcript: ['MX48213', 'MX48231']"},
+  {"id": "es-n8-3-sello-me-equivoque", "text": "El sello es cuatro ocho dos uno tres, me equivoqué, es cuatro ocho dos tres uno.", "meant": {"count": null, "seal": "48231"}, "expect": {"count": null, "seal": null}, "detail": "no count found in transcript", "seal_detail": "seals disagree in transcript: ['48213', '48231']"}
  ]
 }

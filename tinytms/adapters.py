@@ -271,7 +271,7 @@ _ID_NOUNS = frozenset(
 _CORRECTIONS = tuple(tuple(p.split()) for p in (
     "no", "perdón", "perdon", "digo", "corrijo", "mejor dicho", "más bien", "mas bien", "o sea", "bueno",
     "me equivoqué", "me equivoque", "quise decir", "sorry", "wait", "i mean", "actually", "or rather", "rather",
-    "make that", "correction", "scratch that",
+    "make that", "correction", "scratch that", "make it", "mejor",
 ))
 _APPROX_BEFORE = tuple(tuple(p.split()) for p in (
     "como", "unas", "unos", "casi", "aproximadamente", "aprox", "alrededor de", "cerca de", "más de", "mas de",
@@ -294,7 +294,9 @@ _ALTERNATIVES = frozenset({"o", "u", "ó", "or", "y", "e", "and", "a", "to", "ni
 _AFTER_CORRECTION = frozenset(  # "no, son trece", "sorry, it's thirteen", "make that thirteen"
     "son eran es serían serian fueron traigo tengo llevo are is it s that i have got we were was".split()
 )
-_SPEECH_FILLERS = frozenset({"eh", "ehh", "em", "emm", "mm", "mmm", "um", "uh", "uhm", "este"})
+_SPEECH_FILLERS = frozenset({"eh", "ehh", "em", "emm", "mm", "mmm", "um", "uh", "uhm", "este", "hmm", "hm", "mhm", "ah",
+                             "ahh", "er", "erm", "pos", "pues", "espérame", "esperame", "espera", "oye"})
+_FILLER_PHRASES = tuple(tuple(p.split()) for p in ("a ver", "déjame ver", "dejame ver", "let me see", "let s see"))
 _NOT_FILLER = frozenset(
     "con sin en por para al hasta desde entre sobre cada with without in on for to from at by per each "
     "el la los las lo the y e o u ni and or pero but si if que".split()
@@ -631,6 +633,31 @@ def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[s
     return "".join(out), i, ""
 
 
+def _past_correction(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[int, bool]:
+    """From the word at i that ended an id: (the token after the corrections, alternatives and fillers said there, and
+    whether a correction or an alternative was said). Past one, also 'es'/'the'...: 'no, perdón, el MX-48231'."""
+    j, corrected = i, False
+    while j < len(toks) and j - i < 12:
+        if toks[j][0] == "comma":
+            j += 1
+            continue
+        n = _phrase_at(lows, j, _CORRECTIONS) or (
+            1 if lows[j] in _ALTERNATIVES and not _phrase_at(lows, j, _FILLER_PHRASES) else 0)  # "a" but not "a ver"
+        if n:
+            j, corrected = j + n, True
+            continue
+        n = _phrase_at(lows, j, _FILLER_PHRASES) or (1 if lows[j] in _SPEECH_FILLERS or (
+            corrected and (lows[j] in _AFTER_CORRECTION or lows[j] in _SEAL_LEAD_IN)) else 0)
+        if not n:
+            break
+        j += n
+    if j == i:  # nothing of the kind: the token right after the word
+        j += 1
+        while j < len(toks) and toks[j][0] == "comma":
+            j += 1
+    return j, corrected
+
+
 def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, str, set[int]]:
     """Every seal mention: (seal or None, why None when one was said, token indices the mentions cover)."""
     values: list[str] = []
@@ -655,15 +682,13 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
                 values.append(value)
             if i >= len(toks) or toks[i][0] != "word" or not value:
                 break
-            # The id stopped at a word. Another id after it ("..., perdón, MX-48231", "MX-48213 y MX-48214") is a
-            # second value; any other word followed by more seal-like tokens means we cannot tell where the id ends.
-            skip = _phrase_at(lows, i, _CORRECTIONS) or (1 if lows[i] in _ALTERNATIVES else 0)
-            nxt = i + max(skip, 1)
-            while nxt < len(toks) and toks[nxt][0] == "comma":
-                nxt += 1
+            # The id stopped at a word. Another id after it ("..., no, perdón, MX-48231", "MX-48213 y MX-48214",
+            # "..., me equivoqué, es 48231") is a second value; any other word followed by more seal-like tokens means
+            # we cannot tell where the id ends.
+            nxt, corrected = _past_correction(toks, lows, i)
             if nxt >= len(toks) or not _seal_like(toks, lows, nxt) or lows[i] in _ID_NOUNS:
                 break
-            if not skip:
+            if not corrected:
                 whys.append(f"seal interrupted by {toks[i][1]!r}")
                 break
             i = nxt
@@ -701,6 +726,19 @@ def _count(ws: list[str]) -> tuple[int | None, str]:
         return _w(ws, e) in ("", ".", ",", "-", "|") or _w(ws, e) in _ALTERNATIVES or bool(
             _phrase_at(ws, e, _CORRECTIONS))
 
+    def correction_before(s: int) -> str:  # "doce, no, eh, trece", "no a ver trece", "sorry, uh, it's thirteen"
+        p = s
+        for _ in range(6):
+            n = _phrase_ending_at(ws, p, _CORRECTIONS)
+            if n:
+                return " ".join(ws[p - n:p])
+            n = _phrase_ending_at(ws, p, _FILLER_PHRASES) or (1 if _w(ws, p - 1) in (",", ".", "-") or (
+                _w(ws, p - 1) in _SPEECH_FILLERS | _AFTER_CORRECTION) else 0)
+            if not n or p - n < 0:
+                return ""
+            p -= n
+        return ""
+
     counts: list[tuple[int, int, int | None]] = []  # (start, unit end, value)
     other: dict[int, str] = {}  # value -> why it competes with the count
     unit_ends: set[int] = set()
@@ -722,20 +760,18 @@ def _count(ws: list[str]) -> tuple[int | None, str]:
         return None, "no count found in transcript"
 
     for s, e, v in bare:
+        # A correction before a number makes it compete whatever follows it ("no, trece en total", "perdón, trece
+        # completas"). Accepted cost: "perdón, tres horas tarde" competes too (count None, the detail says why).
+        if marker := correction_before(s):
+            other.setdefault(v, f"self-correction: {marker!r}")
+            continue
         if not standalone(e):
             continue
-        p = s
-        while _w(ws, p - 1) in _AFTER_CORRECTION and p > s - 2:
-            p -= 1
-        while _w(ws, p - 1) in (",", ".", "-"):
-            p -= 1
         q = e
         while _w(ws, q) in (",", ".", "-"):
             q += 1
-        before, after = _phrase_ending_at(ws, p, _CORRECTIONS), _phrase_at(ws, q, _CORRECTIONS)
-        if before or after:
-            marker = " ".join(ws[p - before:p] if before else ws[q:q + after])
-            other.setdefault(v, f"self-correction: {marker!r}")
+        if after := _phrase_at(ws, q, _CORRECTIONS):
+            other.setdefault(v, f"self-correction: {' '.join(ws[q:q + after])!r}")
         elif (_w(ws, e) in _ALTERNATIVES and e + 1 in starts) or (
                 _w(ws, s - 1) in _ALTERNATIVES and (s - 1 in ends or s - 1 in unit_ends)):
             other.setdefault(v, f"alternative: {_w(ws, e) if e + 1 in starts else _w(ws, s - 1)!r}")
