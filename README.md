@@ -237,17 +237,28 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
   They are not an accuracy benchmark. The SYNTHETIC-TTS Spanish voice note (macOS voice, not a person) behind the
   three real transcripts was withdrawn for its license (`evals/PROCEDENCIA.md`); its receipts and transcripts stay.
   There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
-  Beyond those it is tested on a hand-written SYNTHETIC corpus of 62 cases (`tests/data/voice-es-variantes.json`: number words,
-  "docena", spelled letters, "guión"/"raya", seals said as one number) and on generated number words. When the
-  driver corrects a count ("doce… no, trece"), gives two ("doce o trece"), hedges ("unas doce"), negates it or says
-  number words that do not read one way ("veinte cuatro"), the count is None and `detail` says why; a corrected or
-  repeated-but-different seal is None too. The parser never picks one of two values.
+  Beyond those it is tested on a hand-written SYNTHETIC corpus of 123 cases (`tests/data/voice-es-variantes.json`: number words,
+  "docena", spelled letters, "guión"/"raya", seals said as one number), on generated number words, on a seeded
+  generator of 3,200 SYNTHETIC notes, each also lowercase with no punctuation (`tests/voice_notes.py`), and on one
+  case for each word of its word lists (`tests/test_voice_words.py`). When the driver corrects a count ("doce… no,
+  trece"), says a second one anywhere in the note ("doce o trece", "Thirteen honestly"), hedges it in its sentence
+  ("unas doce", "Ponle que doce tarimas"), negates it or takes it back ("Mentira."), says it came from someone else
+  or a document ("me dijeron doce tarimas", "The sheet has twelve pallets") or says number words that do not read one way
+  ("veinte cuatro"), the count is None and `detail` says why. The seal is None with the reason when it is corrected
+  or said two ways ("Sorry, the number is ..."), hedged ("No sé si el sello es ..."), negated, taken back ("ese era
+  el de ayer"), reported broken, missing or not matching anywhere after it in the note ("... Está roto."), taken from
+  the paperwork or someone else ("La oficina me pasó el sello ..."), spelled with a first letter that is also a word
+  ("ese eme equis ...", "el sello es eme equis ..."), or said after any word but lead-ins and fillers such as "es",
+  "el", "número", "No.", "pues", "eh" ("el sello de la carta es ..."). On that generator the parser gave no wrong
+  value, never picked one of two values and never left a None without a reason.
 - No local speech-to-text: in `--mode local` the voice witness is `NO_MODEL`, so local check-ins HOLD.
 - `--mode local` has one real Glimmer run (`receipts/20261028T165434299357Z-HOLD.json`); the local fallback of
   `--mode auto` has only been run against a fake worker in tests, no real run backs it yet.
 - Muse Glimmer needs `mlx_vlm` >= 0.7.10 (model type `muse_glimmer`); point `TINYTMS_LOCAL_PYTHON` at an interpreter that has it.
 - The voice seal parser collapses a letter group repeated back to back ("MX MX") as an ASR stutter. A driver who
   really says a doubled prefix against a paper with a single one would match; accepted and written down here.
+- Limits of the voice parser: damage, retraction, second-hand and hedge wording outside the parser's lists can still
+  be misread.
 - `tinytms/capture.py` can grab a camera frame (`cv2.VideoCapture`), but the CLI does not use it yet. The web page
   is local and single-user. There are no TMS records (load / stop / document) and no exception tickets yet.
 - Nothing about customs or government filings.

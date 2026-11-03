@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,7 @@ CORPUS_PATH = Path(__file__).resolve().parent / "data" / "voice-es-variantes.jso
 CORPUS = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
 CASES = CORPUS["cases"]
 SEED = 20261029
+SEAL_WORD = re.compile(r"\b(sellos?|seals?|precintos?|marchamos?)\b", re.IGNORECASE)
 
 
 def witness(text: str):
@@ -60,6 +62,10 @@ def test_corpus_case(case):
     if w.count is None:
         assert w.detail, "a missing count always says why"
         assert case.get("detail", "") in w.detail, w.detail
+    if w.seal is None and SEAL_WORD.search(case["text"]):
+        assert "seal" in w.detail, "a seal said and not read always says why"
+        assert case.get("seal_detail", "") in w.detail, w.detail
+    assert "seal_detail" not in case or w.seal is None, "seal_detail pins a reason, so the seal must be None"
     assert parse_count(case["text"])[0] == w.count and parse_seal(case["text"]) == w.seal
 
 
@@ -193,7 +199,7 @@ def test_self_correction_is_never_resolved_to_either_count():
                 assert (count, why) == (a, ""), text
             else:
                 assert count is None, text
-                assert f"ambiguous counts in transcript: {sorted({a, b})}" in why and "correction" in why, (text, why)
+                assert f"counts disagree in transcript: {sorted({a, b})}" in why and "correction" in why, (text, why)
                 w = witness(text)
                 assert w.count is None and w.detail == why
 
@@ -208,13 +214,13 @@ def test_alternative_counts_are_never_resolved():
             if a == b:
                 assert count == a, text
             else:
-                assert count is None and f"ambiguous counts in transcript: {sorted({a, b})}" in why, (text, why)
+                assert count is None and f"counts disagree in transcript: {sorted({a, b})}" in why, (text, why)
 
 
 def test_doce_no_trece_from_the_lane_order():
     w = witness("Traigo doce pallets de madera… no, trece. El sello es MX guión cuatro ocho dos uno tres.")
     assert w.count is None and w.seal == "MX-48213"
-    assert w.detail == "ambiguous counts in transcript: [12, 13] (self-correction: 'no')"
+    assert w.detail == "counts disagree in transcript: [12, 13] (self-correction: 'no')"
 
 
 def test_a_correction_appended_to_any_corpus_count_never_keeps_the_old_count():
