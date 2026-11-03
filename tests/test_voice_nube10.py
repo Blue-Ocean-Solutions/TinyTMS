@@ -516,6 +516,21 @@ def test_5_a_hedge(hedge, text, count, seal, detail, decision):
     check(text, count, seal, detail, decision)
 
 
+# Item 5: "-ish" is a hedge wherever it is glued: never part of a count or of an id; "finish", "Spanish" stay words.
+ISH = [
+    ("Twelve-ish pallets. Seal MX-48213.", None, "MX-48213", "hedged count in transcript: 'twelve ish'", "HOLD"),
+    ("I have 12ish pallets. Seal MX-48213.", None, "MX-48213", "hedged count in transcript: '12 ish'", "HOLD"),
+    ("Twelve pallets. Seal MX-48213-ish.", 12, None, "hedged seal in transcript: 'seal mx-48213 ish'", "HOLD"),
+    ("Twelve pallets, I finish at five. Seal MX-48213.", 12, "MX-48213", "", "ACCEPT"),
+    ("Twelve pallets of Spanish tile. Seal MX-48213.", 12, "MX-48213", "", "ACCEPT"),
+]
+
+
+@pytest.mark.parametrize("text,count,seal,detail,decision", ISH)
+def test_5_ish_is_a_hedge(text, count, seal, detail, decision):
+    check(text, count, seal, detail, decision)
+
+
 # Item 9: the 3 pinned real transcripts and the demo lines give exactly what they gave on f8caa74.
 REAL = {
     "Traigo doce payets de madera. El sello es MX guión cuatro ocho dos uno tres.": (12, "MX-48213", ""),

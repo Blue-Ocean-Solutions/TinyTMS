@@ -663,11 +663,16 @@ _AND = frozenset("y and".split())  # "a las ocho y diez", "cuarenta y ocho"
 _KEYWORD_TAILS = tuple(tuple(p.split()) for p in ("de seguridad",))  # "sello de seguridad" is the keyword itself
 
 def _tokens(text: str) -> list[tuple[str, str]]:
-    """(kind, text) per token. 'twenty-four' splits into words; 'MX-48213' stays one token. The 's' of "seal's" (and
-    the 't' of "don't") is a 'clitic': never a seal letter."""
+    """(kind, text) per token. 'twenty-four' splits into words; 'MX-48213' stays one token; 'twelve-ish' is 'twelve'
+    and the hedge 'ish'. The 's' of "seal's" (and the 't' of "don't") is a 'clitic': never a seal letter."""
     out: list[tuple[str, str]] = []
     for m in _TOKEN.finditer(text):
         kind, t = m.lastgroup or "", m.group()
+        ish = re.fullmatch(r"(.+?)([-‐]?)(ish)", t, flags=re.IGNORECASE) if kind == "word" else None
+        if ish and (ish.group(2) or ish.group(1).isdecimal() or ish.group(1).lower() in _NUMBER_WORDS):
+            # "twelve-ish", "12ish", "MX-48213-ish": the value, then the hedge "ish" ("finish", "Spanish" stay words)
+            out += _tokens(ish.group(1)) + [("word", ish.group(3))]
+            continue
         parts = [p for p in re.split(r"[-‐]", t) if p]
         if kind == "word" and len(parts) > 1 and all(p.lower() in _NUMBER_WORDS for p in parts):
             out += [("word", p) for p in parts]
