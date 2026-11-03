@@ -99,7 +99,6 @@ def test_generated_seals_in_lowercase():
 
 WEIGHT_AFTER_DIGITS = [
     ("doce bultos sello mx guion cuatro ocho dos uno tres", "4800 kilos", "MX-48213"),
-    ("doce bultos sello mx 48213", "cuatro mil ochocientos kg", "MX48213"),
     ("doce bultos sello mx guion cuatro ocho dos uno tres", "cinco toneladas", "MX-48213"),
     ("doce bultos sello mx guion cuatro ocho dos uno tres", "cuarenta y ocho kilos", "MX-48213"),
     ("twelve pallets seal mx dash four eight two one three", "four thousand eight hundred pounds", "MX-48213"),
@@ -115,6 +114,14 @@ def test_digits_then_a_weight_with_no_stop_read_no_seal(seal_part, weight, seal)
     # a stop before the weight reads one way: the seal
     w = witness(f"{seal_part}. {weight}")
     assert (w.count, w.seal, w.detail) == (12, seal, ""), w.detail
+
+
+def test_digits_written_as_digits_are_never_lengthened_by_a_spoken_weight():
+    # ORDER Nube-9: "48213" written as digits ends there; the spoken number after it is the weight, with or without a
+    # stop (before it this was None, as for digits said as words).
+    for sep in (" ", ". "):
+        w = witness(f"doce bultos sello mx 48213{sep}cuatro mil ochocientos kg")
+        assert (w.count, w.seal, w.detail) == (12, "MX48213", ""), w.detail
 
 
 def test_generated_digit_seals_followed_by_a_weight():

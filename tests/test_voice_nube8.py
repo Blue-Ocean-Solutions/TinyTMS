@@ -4,6 +4,9 @@ House rule: the voice witness returns the right value, or None with a non-empty 
 readings and never returns a wrong value with an empty reason. Every phrase of the order is also a case of the
 SYNTHETIC corpus (tests/data/voice-es-variantes.json, ids "*-n8-<fix>-*") with its exact expected count and seal; this
 file adds what the corpus cannot say: the judge's decision against the paper, and variants generated around them.
+
+ORDER Nube-9 (2026-11-03) reversed fix 7's read-past (an id after words other than a lead-in is None and the reason)
+and some of fix 6's accepted costs; those tests say so where they changed. tests/test_voice_nube9.py pins the rest.
 """
 
 from __future__ import annotations
@@ -87,10 +90,15 @@ def test_fix_2_seals_is_not_smx(apostrophe):
         assert w.seal is not None and w.seal.replace("-", "").upper() == "MX48213", (text, w.seal, w.detail)
 
 
-@pytest.mark.parametrize("text", ["the seal s MX-48213", "el sello hoy mx 48213", "el sello es ab mx guión 48213"])
-def test_fix_2_letters_that_do_not_read_one_way_give_a_reason(text):
+@pytest.mark.parametrize("text,why", [
+    ("the seal s MX-48213", "unclear seal letters: 's mx-48213'"),
+    # ORDER Nube-9: a group with a vowel is a word unless a dash follows it, so "hoy" stands between seal and id
+    ("el sello hoy mx 48213", "words between the seal and its id: 'sello hoy mx'"),
+    ("el sello es ab mx guión 48213", "unclear seal letters: 'ab mx guión'"),
+])
+def test_fix_2_letters_that_do_not_read_one_way_give_a_reason(text, why):
     w = witness(text)
-    assert w.seal is None and "unclear seal letters" in w.detail, (w.seal, w.detail)
+    assert (w.seal, w.detail) == (None, f"no count found in transcript; {why}"), (w.seal, w.detail)
 
 
 @pytest.mark.parametrize("said,seal", [("m x guión 48213", "MX-48213"), ("mx mx guión 48213", "MX-48213"),
@@ -118,7 +126,7 @@ def test_fix_3_a_correction_with_words_between_never_keeps_either_count(marker, 
                      f"{en_words(a, random.Random(a))} pallets, {marker}{between} {en_words(b, random.Random(b))}."):
             w = witness(text)
             assert w.count is None, (text, w.detail)
-            assert f"ambiguous counts in transcript: {sorted({a, b})}" in w.detail and "self-correction" in w.detail, (
+            assert f"counts disagree in transcript: {sorted({a, b})}" in w.detail and "self-correction" in w.detail, (
                 text, w.detail)
 
 
@@ -143,7 +151,7 @@ def test_fix_3_accepted_cost_a_correction_before_any_number_makes_it_compete():
     # A correction before a number makes it compete whatever follows it, so "trece en total" and "trece completas"
     # count. The cost, accepted: a number that counts something else competes too. None and the reason, never 12.
     w = witness("Traigo doce tarimas, perdón, tres horas tarde.")
-    assert w.count is None and w.detail == "ambiguous counts in transcript: [3, 12] (self-correction: 'perdón')"
+    assert w.count is None and w.detail == "counts disagree in transcript: [3, 12] (self-correction: 'perdón')"
 
 
 # --- 4. negated, broken or missing seals ---------------------------------------------------------------------------
@@ -188,8 +196,10 @@ def test_fix_4_the_abbreviation_no_still_reads(said):
     # a negation after a comma is about something else
     ("Traigo doce tarimas, el sello es MX-48213, no traigo material peligroso.", "MX-48213", ""),
     ("doce bultos. sello mx guion cuatro ocho dos uno tres. sin material peligroso.", "MX-48213", ""),
-    # accepted cost: with no comma a negation in the 6 words after the id denies it (None and the reason, never a value)
-    ("Traigo doce tarimas, el sello es MX-48213 y no hay material peligroso.", None,
+    # a negation about the cargo is not about the seal (ORDER Nube-9; before it this was None, an accepted cost)
+    ("Traigo doce tarimas, el sello es MX-48213 y no hay material peligroso.", "MX-48213", ""),
+    # with no comma any other negation in the 6 words after the id denies it (None and the reason, never a value)
+    ("Traigo doce tarimas, el sello es MX-48213 y no lo revisé.", None,
      "negated seal in transcript: 'sello es mx-48213 y no'"),
 ])
 def test_fix_4_a_negation_about_something_else(text, seal, why):
@@ -236,10 +246,12 @@ def test_fix_5_a_hedge_about_something_else_keeps_the_count(text):
 # --- 6. a clause glued onto the seal's digits ----------------------------------------------------------------------
 
 GLUED = ["doce paquetes", "dos horas esperando", "cinco minutos", "tres camiones atrás", "diez metros", "seis bolsas",
-         "doce en total", "dos de ellas", "once grandes", "uno nada más", "twelve crates", "two hours", "five minutes"]
+         "doce en total", "dos de ellas", "once grandes", "twelve crates", "two hours", "five minutes"]
+# ORDER Nube-9: "es de la caja" left this list (a copula may make the last number its subject: "... tres cuatro es el
+# andén"), and "nada", "buenas", "pesa", "son", ... joined it (tests/test_voice_nube9.py).
 CLEAN = ["traigo doce tarimas", "y son de madera", "de la caja", "peso cuatro mil ochocientos kilos",
-         "sin material peligroso", "gracias", "y el peso es cuatro mil ochocientos kilos", "es de la caja", "thanks",
-         "eh traigo doce tarimas"]
+         "sin material peligroso", "gracias", "y el peso es cuatro mil ochocientos kilos", "thanks",
+         "eh traigo doce tarimas", "buenas tardes", "nada más"]
 
 
 def test_fix_6_cases_are_in_the_corpus():
@@ -283,43 +295,65 @@ def test_fix_6_fuzz_the_seal_is_exact_or_none_with_a_reason():
 
 
 # --- 7. words between the keyword and the id; plural keywords; a keyword said last ---------------------------------
+# ORDER Nube-9 removed the read-past: any word between the keyword and the id other than a lead-in ('es', 'is', 'el',
+# 'the', 'número', 'number', 'No.') gives None and the reason, never the id said after it.
 
-BETWEEN_ES = ["de la caja es", "que traigo es el", "pues es", "de la caja de atrás es el", "que me dieron es",
+BETWEEN_ES = ["de la caja es", "que traigo es el", "pues dice", "de la caja de atrás es el", "que me dieron es",
               "lo revisé y es", ", el de la caja, es", "de seguridad que trae es"]
 BETWEEN_EN = ["on the trailer is", "we have is", "on the back door is", "they gave me is"]
-IDS = [("MX-48213", "MX-48213"), ("MX guión cuatro ocho dos uno tres", "MX-48213"),
-       ("mx guion cuatro ocho dos uno tres", "MX-48213"), ("eme equis guión cuatro ocho dos uno tres", "MX-48213"),
-       ("cuatro ocho dos uno tres", "48213"), ("doble u equis cuatro ocho dos uno tres", "WX48213")]
+IDS = [("MX-48213", "mx-48213"), ("MX guión cuatro ocho dos uno tres", "mx"),
+       ("mx guion cuatro ocho dos uno tres", "mx"), ("eme equis guión cuatro ocho dos uno tres", "eme"),
+       ("cuatro ocho dos uno tres", "cuatro"), ("doble u equis cuatro ocho dos uno tres", "doble")]
 
 
 def test_fix_7_cases_are_in_the_corpus():
     assert len(fix(7)) == 14
 
 
-@pytest.mark.parametrize("said,seal", IDS)
-def test_fix_7_words_between_the_keyword_and_an_id_that_reads_one_way(said, seal):
+@pytest.mark.parametrize("said,first", IDS)
+def test_fix_7_words_between_the_keyword_and_the_id_give_none_and_the_reason(said, first):
     for between in BETWEEN_ES:
         w = witness(f"Traigo doce tarimas. El sello {between} {said}.")
-        assert (w.count, w.seal) == (12, seal), (between, said, w.detail)
+        words = " ".join(between.lower().replace(",", " , ").split())
+        why = f"words between the seal and its id: 'sello {words} {first}'"
+        assert (w.count, w.seal, w.detail) == (12, None, why), (between, said, w.detail)
+        assert judge(V, D, w, L).reasons == ("SEAL_MISSING voice",)
     for between in BETWEEN_EN:
         w = witness(f"Twelve pallets. The seal {between} M X dash four eight two one three.")
-        assert (w.count, w.seal) == (12, "MX-48213"), (between, w.detail)
+        assert (w.count, w.seal, w.detail) == (12, None, f"words between the seal and its id: 'seal {between} m'"), (
+            between, w.detail)
+
+
+@pytest.mark.parametrize("said,seal", [("sello es", "MX-48213"), ("sello número", "MX-48213"),
+                                       ("sello es el", "MX-48213"), ("seal is", "MX-48213"),
+                                       ("seal number", "MX-48213"),
+                                       ("seal is the", "MX-48213"), ("sello de seguridad", "MX-48213"),
+                                       ("sello No.", "MX-48213"), ("sello, eh,", "MX-48213"), ("sello:", "MX-48213")])
+def test_fix_7_only_lead_ins_stand_between_the_keyword_and_the_id(said, seal):
+    w = witness(f"Traigo doce tarimas, el {said} MX-48213.")
+    assert (w.count, w.seal, w.detail) == (12, seal, ""), w.detail
+    assert judge(V, D, w, L).decision == "ACCEPT"
 
 
 @pytest.mark.parametrize("text,why", [
-    ("El sello de la caja cuatro es MX-48213.", "unclear which number is the seal"),
-    ("El sello del tráiler dos es cuatro ocho dos uno tres.", "unclear which number is the seal"),
-    ("The seal on trailer four is MX-48213.", "unclear which number is the seal"),
-    ("El sello de la caja MX-48213.", "unclear which number is the seal"),
-    ("The seal should be four eight two one three.", "unclear where the seal starts"),
-    ("seal s MX 48213", "unclear where the seal starts"),
-    ("El sello es mxñ guión cuatro ocho dos uno tres.", "unclear where the seal starts"),
-    ("El sello lo traigo y son doce tarimas.", "seal said but no id read"),
-    ("El sello que me dieron ayer en la caseta de cobro del norte es MX-48213.", "seal said but no id read"),
+    ("El sello de la caja cuatro es MX-48213.", "words between the seal and its id: 'sello de la caja cuatro'; seal "
+                                                "digits run into the next words: 'cuatro es'"),
+    ("El sello del tráiler dos es cuatro ocho dos uno tres.",
+     "words between the seal and its id: 'sello del tráiler dos'; seal digits run into the next words: 'dos es'"),
+    ("The seal on trailer four is MX-48213.", "words between the seal and its id: 'seal on trailer four'; seal digits "
+                                              "run into the next words: 'four is'"),
+    ("El sello de la caja MX-48213.", "words between the seal and its id: 'sello de la caja mx-48213'"),
+    ("The seal should be four eight two one three.", "words between the seal and its id: 'seal should be'"),
+    ("seal s MX 48213", "words between the seal and its id: 'seal s mx'"),
+    ("El sello es mxñ guión cuatro ocho dos uno tres.", "words between the seal and its id: 'sello es mxñ guión "
+                                                         "cuatro'"),
+    ("El sello lo traigo y son doce tarimas.", "seal said but no id read: 'sello lo'"),
+    ("El sello que me dieron ayer en la caseta de cobro del norte es MX-48213.",
+     "words between the seal and its id: 'sello que me dieron ayer en la caseta de cobro del norte es mx-48213'"),
 ])
 def test_fix_7_an_id_that_does_not_read_one_way_gives_a_reason(text, why):
     w = witness(text)
-    assert w.seal is None and why in w.detail, (w.seal, w.detail)
+    assert (w.seal, w.detail.split("; ", 1)[-1] if w.detail.startswith("no count") else w.detail) == (None, why)
 
 
 @pytest.mark.parametrize("plural", ["sellos", "seals", "precintos", "marchamos", "Sellos"])
@@ -362,7 +396,7 @@ def test_fix_7_a_correction_after_the_keyword_is_never_taken_for_the_id(text):
 
 
 @pytest.mark.parametrize("tail,why", [
-    ("buenas tardes", "'cuatro ocho dos uno tres buenas'"), ("en el andén cuatro", "'cuatro ocho dos uno tres en'")])
+    ("en el andén cuatro", "'cuatro ocho dos uno tres en'"), ("es de la caja", "'cuatro ocho dos uno tres es'")])
 def test_fix_6_accepted_cost_a_word_off_the_clean_list_gives_none(tail, why):
     # Accepted cost: only words a number cannot count end the digits cleanly; any other word glued on gives None and
     # the reason, never the seal (and never a longer one).
