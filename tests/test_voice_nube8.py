@@ -343,7 +343,7 @@ def test_fix_7_only_lead_ins_stand_between_the_keyword_and_the_id(said, seal):
     ("The seal on trailer four is MX-48213.", "words between the seal and its id: 'seal on trailer four'; seal digits "
                                               "run into the next words: 'four is'"),
     ("El sello de la caja MX-48213.", "words between the seal and its id: 'sello de la caja mx-48213'"),
-    ("The seal should be four eight two one three.", "words between the seal and its id: 'seal should be'"),
+    ("The seal should be four eight two one three.", "hedged seal in transcript: 'seal should be four'"),
     ("seal s MX 48213", "words between the seal and its id: 'seal s mx'"),
     ("El sello es mxñ guión cuatro ocho dos uno tres.", "words between the seal and its id: 'sello es mxñ guión "
                                                          "cuatro'"),

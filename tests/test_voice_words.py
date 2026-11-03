@@ -15,14 +15,17 @@ from tinytms.adapters import voice_from_transcript
 
 SEAL_DIGITS = "cuatro ocho dos uno tres"
 EN_HEDGES = {"maybe", "perhaps", "probably", "possibly", "think", "i think", "guess", "i guess", "believe", "i believe",
-             "might", "may be", "pretty sure", "fairly sure", "want to say", "not sure", "could be"}
+             "might", "may be", "pretty sure", "fairly sure", "want to say", "not sure", "could be", "supposedly",
+             "supposed", "should be", "guessing", "if i remember"}
 UNIT_WORD = {"pallets?": "pallets", "palets?": "palets", "pal[eé]s": "palés", "payets?": "payets",
              "pajets?": "pajets", "payettes?": "payettes", "paletas?": "paletas", "tarimas?": "tarimas",
              "skids?": "skids", "cajas?": "cajas", "boxes": "boxes", "box": "box", "bultos?": "bultos",
-             "piezas?": "piezas", "pieces?": "pieces"}
+             "piezas?": "piezas", "pieces?": "pieces", "drums?": "drums", "cartons?": "cartons", "cases?": "cases",
+             "rollos?": "rollos", "tambos?": "tambos"}
 NUMBER_TABLES = ("_ES_ONES", "_ES_TEENS", "_ES_TENS", "_ES_HUNDREDS", "_EN_ONES", "_EN_TEENS", "_EN_TENS")
 SPLIT = {"veinti": ("dos", 22), "dieci": ("seis", 16)}
 REPORTED = "seal reported broken, missing or not matching in transcript"
+FROM = "count said from the paperwork or someone else"
 
 
 def _number(name: str, w: str) -> tuple[str, tuple]:
@@ -98,7 +101,7 @@ def case(name: str, w: str) -> tuple[str, tuple]:
         return ((f"Twelve pallets. Sorry, one question.", (12, None, "")) if w == "one"
                 else (f"Doce tarimas. Bueno, {w} saludo.", (12, None, "")))
     if name == "_NOT_COUNT_BEFORE":
-        return {"the": ("Twelve pallets, not the one I said.", (12, None, "")),
+        return {"the": ("Twelve pallets, the one.", (12, None, "")),
                 "las": ("Doce tarimas, llegué a las tres.", (12, None, "")),
                 "la": ("Doce tarimas, llegué a la una.", (12, None, "")),
                 "at": ("Twelve pallets, got here at three.", (12, None, "")),
@@ -140,9 +143,9 @@ def case(name: str, w: str) -> tuple[str, tuple]:
                 "te": (f"Traigo doce tarimas, sello te equis guión {SEAL_DIGITS}.", (12, "TX-48213", "")),
                 "ese": (f"Traigo doce tarimas, sello ese eme equis guión {SEAL_DIGITS}.", (12, "SMX-48213", "")),
                 "de": (f"Traigo doce tarimas, sello MX guión {SEAL_DIGITS} guión de.", (12, "MX-48213-D", ""))}[w]
-    if name == "_NOT_SEAL_LETTERS" and w in ("no", "ya", "si", "ok"):  # after the keyword "NO", "YA" ... never read
-        return (f"Traigo doce tarimas, sello MX guión {SEAL_DIGITS} guión {w}.",
-                (12, None, f"seal ends in a dash: 'mx guión {SEAL_DIGITS} guión {w}'"))
+    if name == "_NOT_SEAL_LETTERS" and w in ("ya", "si", "ok"):  # read as letters they would be "YA", never kept
+        return (f"Traigo doce tarimas, sello {w} guión {SEAL_DIGITS}.",
+                (12, None, f"words between the seal and its id: 'sello {w} guión cuatro'"))
     if name == "_NOT_SEAL_LETTERS":  # before a dash a word is never read as the seal's letters
         why = (f"negated seal in transcript: 'sello mx {w}'" if w == "ni"
                else f"seal said but no id read: 'sello mx {w}'")
@@ -180,6 +183,28 @@ def case(name: str, w: str) -> tuple[str, tuple]:
                 (12, f"M{adapters._EN_SPELLED[w]}-48213", ""))
     if name == "_TRAILER":
         return f"Twelve pallets, the {w} is broken.", (12, None, f"{REPORTED}: 'the {w} is broken'")
+    if name == "_SOURCE_PHRASES":
+        if w == "other driver":
+            return ("The other driver has twelve pallets.",
+                    (None, None, f"{FROM}: 'the other driver has twelve pallets'"))
+        return f"El {w} trae doce tarimas.", (None, None, f"{FROM}: 'el {w} trae doce tarimas'")
+    if name == "_COUNT_DOUBT":
+        said = w.replace(" t ", "'t ")
+        if w.startswith("no "):
+            return f"Traigo doce tarimas, {said}.", (None, None, "count not checked in transcript: 'doce tarimas'")
+        return f"Twelve pallets, I have {said}.", (None, None, "count not checked in transcript: 'twelve pallets'")
+    if name == "_UNREAD":
+        return (f"Traigo doce tarimas. Sello MX-48213. El {w}.",
+                (12, None, f"seal not read in full in transcript: 'sello mx-48213 . el {w}'"))
+    if name == "_REPORTING":  # after the count, a reporting verb is the driver's own
+        return ((f"Doce tarimas, como {w}.", (12, None, "")) if w.startswith("d")
+                else (f"Twelve pallets, like I {w}.", (12, None, "")))
+    if name == "_SCOPING":
+        said = {"per": "Per the bill", "according": "According to the bill", "según": "Según la carta",
+                "segun": "Segun la carta"}[w]
+        lows = said.lower()
+        count = "twelve pallets" if w in ("per", "according") else "doce tarimas"
+        return f"{said}, {count}.", (None, None, f"{FROM}: '{lows} , {count}'")
     if name == "_CLITICS":
         return f"Twelve pallets. The seal'{w} 48213.", (12, "48213", "")
     raise KeyError(name)
