@@ -245,8 +245,10 @@ def test_fix_5_a_hedge_about_something_else_keeps_the_count(text):
 
 # --- 6. a clause glued onto the seal's digits ----------------------------------------------------------------------
 
-GLUED = ["doce paquetes", "dos horas esperando", "cinco minutos", "tres camiones atrás", "diez metros", "seis bolsas",
-         "doce en total", "dos de ellas", "once grandes", "twelve crates", "two hours", "five minutes"]
+# ORDER Nube-10: "paquetes" and "crates" are count nouns now (a count glued to the digits gives no count either);
+# "sillas" and "chairs" take their place.
+GLUED = ["doce sillas", "dos horas esperando", "cinco minutos", "tres camiones atrás", "diez metros", "seis bolsas",
+         "doce en total", "dos de ellas", "once grandes", "twelve chairs", "two hours", "five minutes"]
 # ORDER Nube-9: "es de la caja" left this list (a copula may make the last number its subject: "... tres cuatro es el
 # andén"), and "nada", "buenas", "pesa", "son", ... joined it (tests/test_voice_nube9.py).
 CLEAN = ["traigo doce tarimas", "y son de madera", "de la caja", "peso cuatro mil ochocientos kilos",
@@ -328,8 +330,10 @@ def test_fix_7_words_between_the_keyword_and_the_id_give_none_and_the_reason(sai
                                        ("sello es el", "MX-48213"), ("seal is", "MX-48213"),
                                        ("seal number", "MX-48213"),
                                        ("seal is the", "MX-48213"), ("sello de seguridad", "MX-48213"),
-                                       ("sello No.", "MX-48213"), ("sello, eh,", "MX-48213"), ("sello:", "MX-48213")])
-def test_fix_7_only_lead_ins_stand_between_the_keyword_and_the_id(said, seal):
+                                       ("sello No.", "MX-48213"), ("sello, eh,", "MX-48213"), ("sello:", "MX-48213"),
+                                       ("sello pues es", "MX-48213"), ("sello este es", "MX-48213"),
+                                       ("sello a ver es", "MX-48213")])
+def test_fix_7_only_lead_ins_and_fillers_stand_between_the_keyword_and_the_id(said, seal):
     w = witness(f"Traigo doce tarimas, el {said} MX-48213.")
     assert (w.count, w.seal, w.detail) == (12, seal, ""), w.detail
     assert judge(V, D, w, L).decision == "ACCEPT"

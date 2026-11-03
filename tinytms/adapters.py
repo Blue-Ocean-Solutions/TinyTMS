@@ -219,27 +219,35 @@ def doc_from_spark(
 
 # --- voice ---------------------------------------------------------------------------------
 #
-# The transcript is cut into tokens (words, digit groups, punctuation). Seal mentions are read first ("sello",
-# "seal", ...) and their tokens are set aside; then every number phrase is classified: a count (number + unit noun),
-# a weight (+ kilos), an id ("tráiler cuatro"), or a bare number. A count comes out only if exactly one value is
-# said for it anywhere in the note. Self-corrections ("doce… no, trece", "nope, uh, thirteen total"), alternatives
-# ("doce o trece"), approximations ("unas doce"), hedges ("creo que son doce"), negations ("no traigo doce"), more said
-# after it ("y una suelta", "and a half"), a count taken from the paperwork and unclear number words ("veinte cuatro")
-# give None and a detail that says why. So does a seal that does not read one way: corrected or said two ways
-# anywhere ("... Sorry, MX-48231."), hedged, negated, broken or missing ("el sello no es ...", "... viene roto"), taken
-# from the paperwork ("según la carta ..."), said after any word but a lead-in ("el sello de la carta es ..."), run
-# into what follows it ("... uno tres cuatro mil ochocientos ..."), or said in the plural (ORDER Nube-9: the witness
-# returns the right value, or None with a non-empty reason; it never picks one of two readings).
+# The transcript is cut into tokens (words, digit groups, clock times, punctuation). Seal mentions are read first
+# ("sello", "seal", ...) and their tokens are set aside; then every number phrase is classified: a count (number + unit
+# noun), a weight (+ kilos), an id ("tráiler cuatro"), a time ("a las tres", "1:45"), or a bare number. A count comes
+# out only if exactly one value is said for it anywhere in the note: any bare number competes unless it numbers,
+# weighs or times something else, and "número" alone names the field being corrected ("Perdón, el número es trece").
+# Self-corrections, alternatives, approximations, a hedge anywhere in its sentence ("Creo que lo que traigo son doce
+# tarimas"), negations, more said after it ("y una suelta", "one short"), a count from someone else or a document
+# ("me dijeron ...", "The sheet has ...") or taken back ("Mentira.", "no lo apuntes") and unclear number words give
+# None and a detail that says why. So does a seal that does not read one way: corrected or said two ways anywhere,
+# hedged in its sentence, negated, taken back, reported broken, missing or not matching anywhere after it in the
+# note ("... Está roto.", "..., no está.") or before it in its sentence ("they broke the seal ..."), from someone else
+# or a document, said after any word but lead-ins and fillers ("el sello de la carta es ..."; "el sello pues es ..."
+# reads), spelled with a first letter that is also a word ("ese eme equis ...", "el sello es eme equis ..."), run into
+# what follows it, or said in the plural. Each scan for a hedge, a source or a negation ends at the end of its
+# sentence, never after a fixed number of words (ORDER Nube-10). House rule (ORDER Nube-9): the witness returns the
+# right value, or None with a non-empty reason; it never picks one of two readings.
 
 # "payets", "pajets", "payettes": how Muse Voice Transcribe wrote "pallets" said in Spanish, three runs over the
 # same audio (real transcripts, tests/data/real-voice-es-*).
 _UNITS = (
     r"pallets?|palets?|pal[eé]s|payets?|pajets?|payettes?|paletas?|tarimas?|skids?|cajas?|boxes|box|bultos?|"
-    r"piezas?|pieces?|drums?|cartons?|cases?|rollos?|tambos?"
+    r"piezas?|pieces?|drums?|cartons?|cases?|rollos?|tambos?|bobinas?|crates?|coils?|garraf[oó]n|garrafones|cubetas?|"
+    r"bundles?|sacos?|bags?|costales?|rolls?|reels?|totes?|barrels?|barriles?|bins?|racks?|pacas?|bales?|huacales?|"
+    r"bidones?|sacks?|carretes?|paquetes?|packages?|tires?"
 )
 _UNIT = re.compile(_UNITS)
 _WEIGHT_UNITS = frozenset(
-    "kilos kilo kg kgs kilogramos kilogramo toneladas tonelada ton tons tonnes libras libra lb lbs pounds".split()
+    "kilos kilo kg kgs kilogramos kilogramo kilograms kilogram toneladas tonelada ton tons tonnes libras libra lb lbs "
+    "pounds pound".split()
 )
 # A spoken dash inside a seal id ("MX guión cuatro ocho...", same real transcript); "guion" is the RAE 2010 spelling.
 _SEAL_DASH = frozenset({"guión", "guion", "raya", "dash", "hyphen"})
@@ -273,9 +281,24 @@ _DOZENS = frozenset({"docenas", "dozens"})
 # Words around a number that change what it means.
 _ID_NOUNS = frozenset(
     "tráiler trailer camión camion unidad andén anden puerta rampa bahía bahia muelle caja ruta viaje factura pedido "
-    "orden folio número numero placa placas turno línea linea carril truck dock door bay unit route trip invoice order "
-    "number plate lane gate po operador operator licencia license teléfono telefono phone celular".split()
+    "orden folio número numero placa placas turno línea linea carril truck dock door bay unit route trip invoice "
+    "order number plate lane gate po operador operator licencia license teléfono telefono phone celular cell cel bol "
+    "pro ref cortina load compra slot spot plates tracto tractor chassis chasis container contenedor highway hwy "
+    "interstate carretera autopista freeway exit salida".split()
 )
+# "number"/"número" names what it numbers only after one of these ("PO number 55123", "trailer number 53"; "número de
+# factura 77812" is named by "factura"). Alone it names the field being corrected, so its value competes:
+# "Sorry, the number is MX-48231", "Perdón, el número es trece" (ORDER Nube-10 item 3).
+_NUMBER_NOUNS = frozenset("number número numero".split())
+_NUMBERED = frozenset(
+    "tráiler trailer camión camion unidad andén anden puerta rampa bahía bahia muelle caja ruta viaje factura pedido "
+    "orden folio placa placas turno línea linea carril truck dock door bay unit route trip invoice order plate lane "
+    "gate po operador operator licencia license teléfono telefono phone celular cell cel bol pro ref reference "
+    "referencia tracking confirmation confirmación confirmacion booking load carga pickup delivery entrega "
+    "appointment cita cuenta account pedimento guía guia control employee empleado badge gafete móvil movil mobile "
+    "tractor chassis chasis container contenedor".split()
+)
+_ID_ARTICLES = frozenset("el la los las the my mi su your tu his her its our nuestro nuestra an un una".split())
 _CORRECTIONS = tuple(tuple(p.split()) for p in (
     "no", "perdón", "perdon", "digo", "corrijo", "mejor dicho", "más bien", "mas bien", "o sea", "bueno",
     "me equivoqué", "me equivoque", "quise decir", "sorry", "wait", "i mean", "actually", "or rather", "rather",
@@ -286,6 +309,7 @@ _CORRECTIONS = tuple(tuple(p.split()) for p in (
 _APPROX_BEFORE = tuple(tuple(p.split()) for p in (
     "como", "unas", "unos", "casi", "aproximadamente", "aprox", "alrededor de", "cerca de", "más de", "mas de",
     "menos de", "más o menos", "mas o menos", "al menos", "por lo menos", "hasta", "por ahí de", "about", "around",
+    "close to", "por ahi de",
     "roughly", "approximately", "approx", "nearly", "give or take", "almost", "some", "like", "over", "under",
     "more than", "less than", "fewer than", "at least", "up to",
 ))
@@ -293,26 +317,31 @@ _APPROX_AFTER = tuple(tuple(p.split()) for p in (
     "más o menos", "mas o menos", "o así", "o asi", "aproximadamente", "o algo así", "y pico", "or so", "roughly",
     "approximately", "give or take", "more or less",
 ))
-# The driver is not sure: "creo que son doce", "tal vez doce", "maybe twelve", "doce tarimas, creo".
+# The driver is not sure. Said anywhere in the sentence of a value, before or after it, a hedge covers it (ORDER
+# Nube-10 item 5): "creo que son doce", "doce tarimas, creo", "Creo que lo que traigo son doce tarimas", "No sé si el
+# sello es ...", "Ponle que doce tarimas", "Seal MX-48213, if I'm not wrong", "twelve-ish pallets".
 _HEDGES = tuple(tuple(p.split()) for p in (
     "creo", "supongo", "pienso", "parece", "quizá", "quizás", "quiza", "quizas", "tal vez", "talvez", "a lo mejor",
-    "probablemente", "posiblemente", "calculo", "puede que", "según yo", "segun yo", "maybe", "perhaps", "probably",
-    "possibly", "think", "i think", "guess", "i guess", "believe", "i believe", "might", "may be", "pretty sure",
-    "fairly sure", "want to say", "not sure", "could be", "supuestamente", "supposedly", "supposed", "han de ser",
-    "deben ser", "deben de ser", "debe ser", "should be", "guessing", "no estoy seguro", "no estoy segura",
-    "if i remember",
-))
-_HEDGES_AFTER = tuple(tuple(p.split()) for p in (
-    "creo", "creo yo", "supongo", "me parece", "quizá", "quizás", "tal vez", "a lo mejor", "según yo", "segun yo",
-    "si no me equivoco", "si mal no recuerdo", "no estoy seguro", "no estoy segura", "no me acuerdo", "no lo veo",
-    "i think", "i guess", "i believe", "maybe", "probably", "perhaps", "i m not sure",
-    "not sure", "i m pretty sure", "pretty sure", "if i m not mistaken", "if i remember", "if i read", "if i counted",
-    "or something", "don t quote me", "can t really read", "can t read", "could be", "eso creo",
-    "si no mal recuerdo",
+    "probablemente", "posiblemente", "calculo", "puede que", "según yo", "segun yo", "supuestamente", "han de ser",
+    "deben ser", "deben de ser", "debe ser", "no estoy seguro", "no estoy segura", "si no me equivoco",
+    "si mal no recuerdo", "si no mal recuerdo", "no me acuerdo", "no lo veo", "no se si", "no sé", "que yo sepa",
+    "hasta donde sé", "hasta donde se", "casi seguro", "casi segura", "igual y", "se supone", "ponle", "diría",
+    "diria", "me late", "digamos", "maybe", "perhaps", "probably", "possibly", "think", "guess", "believe", "might",
+    "may be", "pretty sure", "fairly sure", "want to say", "not sure", "could be", "supposedly", "supposed",
+    "should be", "guessing", "if i remember", "if i m not mistaken", "if i read", "if i counted", "or something",
+    "don t quote me", "can t really read", "can t read", "i d say", "i would say", "reckon", "suppose",
+    "as far as i know", "almost sure", "almost certain", "if i m not wrong", "if i am not wrong", "unless i m wrong",
+    "don t know", "ish", "if i m reading", "not a hundred percent", "not one hundred percent", "not 100",
+    "no estoy muy seguro", "no estoy muy segura", "no estoy tan seguro", "no estoy tan segura", "si las conté",
+    "si los conté", "si las conte", "si los conte", "si no conté mal", "not positive", "not certain", "no se bien",
+    "más o menos", "mas o menos", "o así", "o asi", "o algo así", "o algo asi", "y pico", "or so", "give or take",
+    "more or less", "aproximadamente", "approximately", "roughly", "approx", "aprox", "something like",
+    "algo así como", "ballpark", "estimate", "estimated", "estimo", "a ojo", "al tanteo", "a lo mucho",
+    "cuando mucho", "at most", "at the most", "si es que", "si lo leí", "si lo lei", "aproximado", "aproximada",
 ))
 _NEGATIONS = frozenset({"no", "ni", "nunca", "tampoco", "not", "never", "nor"})
 _NEGATED_CONTRACTIONS = frozenset({"don", "doesn", "didn", "isn", "aren", "wasn", "weren", "haven", "hasn", "won",
-                                   "can", "couldn"})
+                                   "can", "couldn", "wouldn", "shouldn", "ain"})
 _COUNT_VERBS = frozenset(
     "traigo trae traemos llevo lleva llevamos tengo tenemos son eran serían serian vienen van cargo cargué cargue hay "
     "entrego bring have got carrying carry are".split()
@@ -322,7 +351,8 @@ _AFTER_CORRECTION = frozenset(  # "no, son trece", "sorry, it's thirteen", "make
     "son eran es serían serian fueron traigo tengo llevo are is it s that i have got we were was".split()
 )
 _SPEECH_FILLERS = frozenset({"eh", "ehh", "em", "emm", "mm", "mmm", "um", "uh", "uhm", "este", "hmm", "hm", "mhm", "ah",
-                             "ahh", "er", "erm", "pos", "pues", "espérame", "esperame", "espera", "oye"})
+                             "ahh", "er", "erm", "pos", "pues", "espérame", "esperame", "espera", "oye", "mmh", "mmhm",
+                             "umm", "uhh", "ehm"})
 _FILLER_PHRASES = tuple(tuple(p.split()) for p in ("a ver", "déjame ver", "dejame ver", "let me see", "let s see"))
 _NOT_FILLER = frozenset(
     "con sin por para al hasta desde entre sobre cada with without in on for to from at by per each "
@@ -335,29 +365,94 @@ _COUNT_AFTER = tuple(tuple(p.split()) for p in (  # ("en total", "de ellas" alre
 ))
 _MORE = frozenset({"más", "mas", "more", "extra", "menos", "less", "fewer"})  # "y una más": 13, or 1? no count
 _ARTICLES = frozenset({"un", "una", "one"})  # "bueno, un saludo": an article, a count only before a count noun
+# After a correction, "un"/"una"/"one" is an article only before one of these ("bueno, un saludo", "sorry, one
+# question"); before any other word it competes as a count ("perdón, un par más", "sorry, one short").
+_ARTICLE_NOUNS = frozenset("saludo saludos abrazo favor momento pregunta question moment second segundo minute minuto "
+                           "cosa thing".split())
+# "one" is a pronoun after these: "have a good one", "the last one", "this one" (ORDER Nube-10 item 7).
+_PRONOUN_BEFORE = frozenset("good great nice safe long last next other same right first this that which every "
+                            "another quick easy short small big little busy slow fast tough rough quiet smooth "
+                            "blessed".split())
+# Right after a number these change the count, never name what it counts: "one short", "una faltante", "un par más".
+_COUNT_CHANGE = frozenset("short faltante faltantes missing falta faltan suelta sueltas suelto sueltos loose adicional "
+                          "adicionales additional sobrante sobrantes par pair couple".split())
+# Adverbs ("-ly", "-mente" and these) after a bare number never hide it: "Thirteen honestly" competes.
+_ADVERBS = frozenset("tops flat even straight nomás nomas ahorita again also too though".split())
 # Said after a count, any of these adds to it or makes it a part: "doce tarimas más una suelta", "and a half".
 _ADDED = frozenset("más mas plus además aparte another otra otras otro otros extra media half cacho change partial "
                    "parcial incompleta incompleto incompletas incompletos suelta sueltas suelto sueltos loose falta "
                    "faltan faltó falto faltaba missing short".split())  # "me faltó cargar una": 11 or 12?
-# Before the keyword or the count, the value is the paperwork's or someone else's, not what the driver saw: "según la
-# carta porte el sello es ...", "the BOL says fourteen pallets", "dispatch told me the seal is ...".
-_SOURCES = frozenset("según segun according bol paperwork papeles papel carta factura bill manifest manifiesto "
-                     "documento documentos dispatch despacho despachador dispatcher shipper remitente hoja cliente "
-                     "montacarguista planta compañero compañera partner guardia guard caseta dice dicen dijo dijeron "
-                     "says said told".split())
-_REPORTING = frozenset("dice dicen dijo dijeron says said told".split())
-_SCOPING = frozenset("según segun according per".split())  # "per the bill, 20 pallets": past the comma too
+# Second-hand values (ORDER Nube-10 item 4): before a value in its sentence, any of these makes it someone else's.
+# Verbs of telling or giving, with any subject: "me dijeron doce tarimas", "the office sent me ...", "dispatch says".
+_TELLING = frozenset(
+    "dice dicen dijo dijeron decía decia decían decian diga digan dicho says say said told tell tells telling saying "
+    "gave give gives giving sent send sends texted emailed informó informaron avisó avisaron reportó reportaron "
+    "comentó comentaron contó contaron contaba reported mentioned entregó entregaron dictó dictaron leyó "
+    "leyeron".split()
+)
+# Giving verbs that are also everyday words ("lo que pasó", "da igual"): giving only right after an object pronoun:
+# "me pasó el sello", "nos mandaron doce tarimas", "le dieron el número".
+_GIVING = frozenset("pasó pasaron pasa pasan dio dió dieron da dan mandó mandaron manda mandan".split())
+_GIVEN_TO = frozenset("me nos le les te".split())
+_GIVEN_WHAT = frozenset("lo la los las".split())  # "me lo pasó", "me las contó el muchacho"
+_SCOPING = frozenset("según segun according per".split())  # "per the docs, the seal is ...", "según la carta ..."
+# Documents and devices: "The sheet has twelve pallets", "En la remisión viene el sello ...", "the app shows ...".
+_DOCS = frozenset(
+    "docs doc documents documento documentos paperwork papeles papel papers paper sheet hoja carta guía guia remisión "
+    "remision sistema system app aplicación aplicacion bol bill manifest manifiesto factura ticket pantalla screen "
+    "tablet scanner portal".split()
+)
+# Also cargo or a name ("toallas de papel", "paper plates", "it's Bill with ..."): a document only right after one of
+# _DOC_DETERMINERS ("el papel dice", "per the bill", "según la hoja").
+_ARTICLE_DOCS = frozenset("papel papeles paper papers bill hoja carta sistema system ticket guía guia pantalla "
+                          "screen".split())
+_DOC_DETERMINERS = frozenset("el la los las the my mi su this that ese esa este esta your tu".split())
+# People and places: a source unless the driver is the one acting (_DRIVER_ACTING) and nobody in the sentence counts,
+# seals, tells or gives (_PARTY_ACTS, _TELLING): "El cliente contó doce tarimas", "En la planta me contaron ...".
+_PARTIES = frozenset(
+    "dispatch despacho despachador dispatcher shipper remitente cliente customer client montacarguista planta plant "
+    "compañero compañera partner guardia guard caseta oficina office supervisor jefe boss gerente manager checker "
+    "receiving receiver broker warehouse almacén almacen bodega forklift montacargas lumper lumpers loader "
+    "loaders".split()
+)
 _SOURCE_PHRASES = tuple(tuple(p.split()) for p in ("otro chofer", "other driver", "otro operador"))  # "el otro chofer"
+_PARTY_ACTS = frozenset("count counts sealed selló sellaron checked revisó reviso revisaron cargaron cargó "
+                        "loaded".split())
+# Said with no first person before them, these English verbs are someone else counting or sealing, before or after
+# the value: "The forklift driver counted nineteen pallets", "twelve pallets, they counted them" (not "I counted").
+_ACTS_BY_OTHERS = frozenset({"counted"})
+_FIRST_PERSON = frozenset("i we".split())
+_AUXILIARIES = frozenset("have haven had hadn t not did didn ve d just already also never".split())
+# The exact ways a driver acts on a place or party (past an article): "Vengo de la planta con doce tarimas", "Traigo
+# doce tarimas del cliente", "I came straight from the shipper", "Ya pasé la caseta". Anything else keeps it a source.
+_DRIVER_ACTING = frozenset(
+    "de del desde from for para a al to at en in con with hacia toward of pasé pase pasamos crucé cruce cruzamos "
+    "passed crossed left dejé deje".split()
+)
 # Said anywhere, the count was not checked: "no las conté", "I didn't count them".
 _COUNT_DOUBT = tuple(tuple(p.split()) for p in (
     "no las conté", "no los conté", "no las conte", "no los conte", "didn t count", "did not count", "didn t check",
     "did not check", "haven t counted", "no vi la carga", "not looked", "haven t looked",
 ))
 # "a las tres", "at three", "cada una", "the one on the BOL": the number after these is not a count
-_NOT_COUNT_BEFORE = frozenset({"las", "la", "at", "cada", "each", "the"})
+_NOT_COUNT_BEFORE = frozenset({"las", "la", "at", "cada", "each", "the", "minus", "negative", "since", "desde"})
+# Clock times said in words: "a quarter to six", "half past five", "a las ocho y diez" (the "y diez" after a time).
+_TIME_BEFORE = tuple(tuple(p.split()) for p in ("quarter to", "quarter till", "past", "cuarto para"))
+# English phrases with "once" (Spanish 11): "no wind for once", "all at once".
+_ONCE = tuple(tuple(p.split()) for p in ("for once", "just once", "only once", "once again", "once in a while"))
 _WEIGHT_WORDS = frozenset("peso pesa pesan pesamos weight weighs weigh weighing".split())
+# What may stand between a weight word and its number: "peso bruto 4800", "weighs about 4,800", "pesa, como, cuatro
+# mil".
+_WEIGHT_GAP = frozenset(
+    "es is de of del bruto bruta gross neto neta net total son are was era como about around unos unas "
+    "aproximadamente approximately casi almost roughly right just justo nearly ,".split()
+)
 # What may stand between an id noun and its number: "trailer number is 53", "la factura es 48213", "en el andén 4".
-_ID_LEAD = frozenset("es is el de del of no nº en in on a su mi my ,".split())
+# "No." is a lead only as the abbreviation before digits ("andén No. 4"): a correction "no" never hides a count behind a
+# place noun ("en la caja, no trece", "andén no cuatro"), and neither does a comma (ORDER Nube-10 item 1a).
+_ID_LEAD = frozenset("es is el la los las the de del of nº en in on a su mi my son are was era".split())
+# "mi número es el 867 119 2054", "my number is ...": a possessive before "número"/"number" names the driver's own.
+_POSSESSIVES = frozenset("mi my su your tu his her".split())
 
 # Seal mentions. Spelled letter names are only the ones that are not also everyday words ("de", "te", "ese", "ve").
 _SEAL_KEYWORDS = frozenset({"sello", "seal", "precinto", "marchamo"})
@@ -366,19 +461,91 @@ _SEAL_PLURALS = frozenset({"sellos", "seals", "precintos", "marchamos"})  # more
 # the reason, the id is never read past it ("el sello de la carta es ...", "the seal on the paperwork is ...").
 # "No." is the abbreviation ("sello No. MX-48213"; "el sello no es MX-48213" negates it); "de seguridad" is part of
 # the keyword ("sello de seguridad").
-_SEAL_LEAD_IN = frozenset("es is el the número numero núm number nº".split())
+_SEAL_LEAD_IN = frozenset("es is el the número numero núm number nº reads".split())
 _SEAL_ABBREVIATIONS = frozenset({"no", "num", "núm", "nro", "n"})  # before a "."
-# Said of the seal, any of these means it cannot be taken as read: "el sello MX-48213 viene roto", "falta el sello",
-# "seal MX-48213 is missing". After a negation they say the seal is fine: "no está roto", "is not broken", "no falta".
+# Said anywhere after the seal, to the end of the note (ORDER Nube-10 item 2), or before it in its sentence, any of
+# these means it cannot be taken as read: "el sello MX-48213 viene roto", "... Está roto.", "they broke the seal ...",
+# "le quitaron el sello ...", "falta el sello". After a negation (_NEGATED_BEFORE) they say it is fine: "no está roto",
+# "nada roto", "nothing broken", "nothing missing", "no falta".
 _SEAL_BAD = frozenset(
-    "roto rota rotos rotas dañado dañada dañados dañadas violado violada violentado violentada forzado forzada abierto "
-    "abierta cortado cortada quebrado quebrada alterado alterada despegado despegada falta faltan faltó falto faltaba "
-    "faltante perdido perdida perdí perdi perdió perdio diferente distinto distinta broken damaged tampered cut opened "
-    "missing lost removed gone mismatch mismatched wrong different lacks lacking loose suelto suelta flojo floja "
-    "violaron violó violo cortaron rompieron rompió rompio abrieron off bad mal".split()
+    "roto rota rotos rotas dañado dañada dañados dañadas daño daños damage violado violada violentado violentada "
+    "forzado forzada abierto abierta cortado cortada quebrado quebrada alterado alterada despegado despegada falta "
+    "faltan faltó falto faltaba faltante perdido perdida perdí perdi perdió perdio diferente distinto distinta broken "
+    "broke damaged tampered cut opened missing lost removed gone mismatch mismatched wrong different lacks lacking "
+    "loose suelto suelta flojo floja violaron violó violo cortaron rompieron rompió rompio abrieron bad mal cracked "
+    "busted snapped ripped torn bent popped twisted pulled sheared quitaron quitado quitada arrancaron arrancado "
+    "arrancada reventado reventada chueco chueca doblado doblada colgando desprendido desprendida cambiaron cambiado "
+    "cambiada zafado zafada hole holes agujero agujeros hoyo hoyos perforado perforada tronado tronada tronó "
+    "estrellado estrellada golpeado golpeada golpearon mordido mordida partieron desmontaron soldaron soldadura "
+    "smashed chewed glued pried drilled welded".split()
 )
+_SEAL_BAD_PHRASES = tuple(tuple(p.split()) for p in (
+    "se cayó", "se cayo", "se lo llevaron", "se la llevaron", "no sirve", "se zafó", "se zafo", "came off",
+    "fell off", "taken off", "took it off", "is off", "s off", "was off", "se metió", "se metio", "se metieron",
+    "se sale", "partido por", "partida por", "le sacaron", "tirado en", "no estaba en", "quisieron abrir", "se salió",
+    "se salio", "comes off",
+))
+# Plain non-seal uses of a damage word: these alone never take the seal (an exact list).
+_BAD_NOT_SEAL = tuple(tuple(p.split()) for p in (
+    "pulled in", "pulled into", "pulled up", "pulled over", "wrong turn", "wrong way",
+    "wrong exit", "bad traffic", "traffic was bad", "traffic is bad", "bad weather", "weather was bad", "too bad",
+    "cut me off",
+))
+# Right after the id, in its sentence only: "seal MX-48213 off".
+_CLAUSE_BAD = frozenset({"off"})
+# Before a damage word these say it is not so, with only _NEGATION_GAP words between: "nada roto", "nothing missing".
+_AFFIRMING_NEGATIONS = frozenset("nothing nada sin without ningún ningun ninguno ninguna".split())
+# ... unless a condition stands before the negation: "if I'm not wrong", "si no está roto" say nothing is fine.
+_CONDITIONS = frozenset("if si unless".split())
+_CONDITION_GAP = frozenset("i m am it s is".split())
+_WITHOUT = frozenset({"sin", "without"})  # "sin sello", "without a seal"
+# "no está", "no lo tengo", "don't have it", "isn't there": a negation, these, and the end of the clause.
+_MISSING_CHAIN = frozenset(
+    "está esta estaba están estan hay había habia tengo tiene tienen trae traigo traemos viene vienen veo encuentro "
+    "encontré encontre find found see have has had got is was are there here it lo la le one uno una".split()
+)
+_CLAUSE_JOINS = frozenset("y and pero but so".split())
+_COPULAS = frozenset("es era".split())  # "no es VN"
+# Said after a value, these take it back without a replacement; every field said before them gives None ("Mentira.",
+# "olvídalo", "never mind"); so does a pronoun for what was said (_RETRACT_PRONOUNS) with, later in its clause, a word
+# that puts it elsewhere (_RETRACT_PLACES): "No, ese es el de la otra caja", "ese era el de ayer", "Wait, no, that's
+# from my last load".
+_RETRACTIONS = tuple(tuple(p.split()) for p in (
+    "mentira", "olvídalo", "olvidalo", "olvida", "olvídate", "olvidate", "olvídense", "olvidense", "borra", "táchalo",
+    "tachalo", "tacha", "retiro", "retirar", "retiré", "retire lo", "no me hagas caso", "no le hagas caso",
+    "no hagas caso", "no le haga caso", "nada de eso", "ese no", "esa no", "no es ese", "no es esa", "me equivoqué",
+    "me equivoque", "me confundí", "me confundi", "conté mal", "conte mal", "está mal", "esta mal", "forget it",
+    "forget that", "forget both", "forget all", "forget everything", "forget those", "forget about", "never mind",
+    "nevermind", "ignore it", "ignore that", "ignore the", "ignore those", "disregard", "take back", "take it back",
+    "take that back", "taking back", "scratch that", "scratch the", "strike that", "strike all", "cancel that",
+    "none of that", "miscounted", "i messed up", "that s not it", "not that one", "wrong load", "wrong paperwork",
+    "wrong trailer", "wrong number", "throw that", "throw all", "throw it", "throw those", "scratch both",
+    "scratch all", "scratch those", "scratch it", "mixed up", "mixed it up", "turned around", "al revés", "al reves",
+    "backwards", "no te sirve", "no les sirve", "not the count", "not the number", "no es el número",
+    "no es el numero", "way off", "wrong count", "carga equivocada", "número equivocado", "numero equivocado",
+))
+# These take a value back only at the end of a clause: "1,400's not right.", "no va,", "no es así." ("no va a llover"
+# says nothing of it).
+_RETRACTIONS_AT_END = tuple(tuple(p.split()) for p in (
+    "not right", "isn t right", "s not right", "no va", "no es así", "no es asi", "no es correcto", "not correct",
+    "no es",
+    "isn t correct",
+))
+_RETRACT_PRONOUNS = frozenset("ese esa eso that count conteo cuenta".split())  # "the bag count is wrong"
+_RETRACT_PLACES = frozenset(
+    "otra otro otras otros other another last previous anterior pasada pasado ayer yesterday old vieja viejo "
+    "equivocado equivocada wrong before earlier antes entregué delivered".split()
+)
+# Told not to use what was said: a negation, these pronouns, then one of _DONT_USE ("don't log that", "no lo apuntes",
+# "no lo tomes en cuenta", "don't go by that box count", "don't use that seal number").
+_DONT_USE_WHAT = frozenset("lo la los las eso that it this those".split())
+_DONT_USE = frozenset("use log write record go take enter put apuntes anotes tomes uses registres pongas escribas "
+                      "captures apunten anoten tomen usen registren".split())
+# Said right after a value, these say it is wrong: "the 350 is wrong", "las 34 están mal".
+_WRONG = frozenset("wrong mal off incorrect incorrecto incorrecta equivocado equivocada".split())
 # A part of the seal said: "seal 7731, last four", "los últimos cuatro".
 _SEAL_PARTIAL = frozenset("last últimos últimas ultimos ultimas".split())
+_SOMETHING = frozenset({"algo", "something"})  # right after the id: "183 something", "PR 8718 y algo"
 # Anywhere after the seal, the id was not read in full: "no se alcanza a ver el resto", "rest is smudged".
 _UNREAD = frozenset("resto rest borroso borrosa smudged scratched ilegible illegible unreadable faded despintado "
                     "despintada".split())
@@ -386,19 +553,25 @@ _UNREAD = frozenset("resto rest borroso borrosa smudged scratched ilegible illeg
 _LETTER_WORDS = frozenset("letra letras letter letters".split())
 # The trailer itself said to be open or broken: "la caja viene abierta", "the trailer door is open".
 _TRAILER = frozenset("caja tráiler trailer remolque puerta puertas door doors".split())
+_OPEN = frozenset({"open"})  # said of the trailer: "the trailer door is open"
 # The seal said as a verb: "it's not sealed", "sin sellar", "came unsealed".
 _SEALING = frozenset("sealed unsealed sellar sellaron sellado sellada sellados selladas".split())
 # Said of the seal these say it is fine ("el sello coincide", "it matches the paperwork"); negated, that it is not
 # ("no coincide", "doesn't match").
+_MATCH_GAP = frozenset("con with as que to".split())  # "coincide con la carta", "same as the paperwork"
 _SEAL_MATCH = frozenset(
     "coincide coinciden corresponde corresponden cuadra cuadran concuerda match matches matched matching agrees same "
-    "igual mismo misma".split()
+    "igual mismo misma intact intacto intacta trust confío confio confiar fiar".split()
 )
 # Words that may stand between a negation and the word it negates: "no está roto", "has not been opened".
 _NEGATION_GAP = frozenset("está esta estaba están estan viene vienen venía venia ha han has have had been be is was "
-                          "are fue se le lo la it es el the a un una".split())
+                          "are fue se le lo la it es el the a un una look looks seem seems ve veo even too tan so "
+                          "muy".split())
 # A negation about the cargo, not the seal: "MX-48213 no hay material peligroso".
 _HAZMAT = frozenset("peligroso peligrosa peligrosos peligrosas hazmat hazardous".split())
+# What may stand between such a negation and the cargo word: "no traigo material peligroso", "there is no hazmat".
+_CARGO_GAP = frozenset("traigo trae hay tengo tiene llevo lleva material materiales carga cargo producto productos any "
+                       "is there have has we i it de del el la los las the a an es son".split())
 # Words that may stand between a negation and the keyword before it: "no traigo el sello", "there is no seal".
 _SEAL_BEFORE_SKIP = frozenset(
     "el la los las lo un una the a an any ningún ningun ninguno ninguna su sus mi this that traigo trae traemos tengo "
@@ -412,9 +585,21 @@ _SPELLED = {**_EN_SPELLED, "be": "B", "ce": "C", "efe": "F", "ge": "G", "hache":
             "ele": "L", "eme": "M", "ene": "N", "eñe": "Ñ", "pe": "P", "cu": "Q", "erre": "R", "uve": "V", "equis": "X",
             "ye": "Y", "zeta": "Z"}
 _NOT_SEAL = frozenset({"OK", "NO", "SI", "YA"})
+# Capitalized at the start of a sentence these are words, never seal letters: "Y pesa cuatro mil ochocientos kilos".
+_SENTENCE_WORDS = frozenset({"Y", "O", "E", "U"})
+# A number joined to one of these is a size, never an id: "It's a 53-foot dry van", "caja de 53-pies".
+_SIZE_UNITS = frozenset("foot feet ft footer pies pie inch inches pulgadas metros meters metres".split())
+# The only plain non-seal uses of _UNREAD words: anywhere else after the seal, "resto", "rest" give it None.
+_UNREAD_EXCEPTIONS = tuple(tuple(p.split()) for p in (
+    "el resto está bien", "el resto esta bien", "the rest is fine", "get some rest", "rest area",
+))
 # Letter names that are also everyday words ("a", "de", "te", "ese"): a letter only next to another spelled letter
 # ("a be", "te equis", "ese eme equis", "ce a guión ..."), or after a dash at the end of a sentence ("guión de.").
 _WORD_LETTERS = {"a": "A", "de": "D", "te": "T", "ese": "S", "em": "M", "el": "L"}  # "el" only before an English name
+# Both a lead-in, a filler or an everyday word and a letter name: as the id's first letter, or right before a spelled
+# letter that starts it, the seal gives None ('unclear seal letters'): "the seal is el em ex four ...", "sello ese eme
+# equis ...", "el sello es eme equis ...", "the seal is, see, MX-48213" (ORDER Nube-10 item 6).
+_LETTER_NAME_WORDS = frozenset("el es ese te a see em why".split())
 # The local ASR writes a seal's letters in lowercase ("el sello es mx guión cuatro..."). Function words never are seal
 # letters, whatever follows them ("el sello es de plástico", "cuatro ocho y dos uno tres").
 _NOT_SEAL_LETTERS = frozenset(
@@ -423,7 +608,16 @@ _NOT_SEAL_LETTERS = frozenset(
     "muy tan mas ese esa eso ok oh "
     "an and are as at by do for go has i if in is it its of on or per so the to up us was we yes".split()
 ) | _WEIGHT_UNITS | _SPEECH_FILLERS
-_LETTER_PAIRS = {("doble", "ve"): "W", ("doble", "uve"): "W", ("uve", "doble"): "W", ("doble", "u"): "W",
+# How an id is read over the radio: inside a seal id, before its digits, these are its letters ("Seal is Whiskey,
+# India, three, oh, ..."), as is a letter said with a word that starts with it ("T as in Tom", "pe de Pablo").
+_RADIO = {"alpha": "A", "alfa": "A", "bravo": "B", "charlie": "C", "delta": "D", "echo": "E", "foxtrot": "F",
+          "golf": "G", "hotel": "H", "india": "I", "juliet": "J", "juliett": "J", "kilo": "K", "lima": "L", "mike": "M",
+          "november": "N", "oscar": "O", "papa": "P", "quebec": "Q", "romeo": "R", "sierra": "S", "tango": "T",
+          "uniform": "U", "victor": "V", "whiskey": "W", "whisky": "W", "xray": "X", "yankee": "Y", "zulu": "Z"}
+_AS_IN = tuple(tuple(p.split()) for p in ("as in", "for", "like", "de", "como"))
+_LETTER_PAIRS = {("be", "grande"): "B", ("be", "larga"): "B", ("be", "alta"): "B", ("ve", "chica"): "V",
+                 ("ve", "corta"): "V", ("ve", "baja"): "V",
+                 ("doble", "ve"): "W", ("doble", "uve"): "W", ("uve", "doble"): "W", ("doble", "u"): "W",
                  ("i", "griega"): "Y", ("double", "u"): "W", ("double", "you"): "W"}
 # Words that can follow a seal's last digit without being counted by it: "... uno tres traigo doce tarimas", "... tres
 # y son de madera", "... tres de la caja", "... tres peso cuatro mil ...", "... tres pesa cuatro mil ...", "... tres
@@ -440,17 +634,33 @@ _DIGIT_OF = {w: str(v) for w, v in (*_ES_ONES.items(), *_EN_ONES.items(), ("cero
              if w not in ("un", "una")}
 
 _TOKEN = re.compile(
-    r"(?P<num>\d{1,3}(?:[.,]\d{3})+(?![\w-])|\d+[.,]\d+(?![\w-]))"
+    r"(?P<time>\d{1,2}:\d{2}(?![\d:])(?:\s?[ap]\.?m\b\.?)?|\d{1,2}\s?(?:[ap]\.m\.|[ap]m\b|o['’]clock))"
+    # "Got here at 1:45", "3 a.m.", "10 o'clock": a clock time, never a count or an id
+    r"|(?P<num>\d{1,3}(?:[.,]\d{3})+(?![\w-])|\d+[.,]\d+(?![\w-]))"
     r"|(?P<word>[^\W_]+(?:[-‐][^\W_]+)*)"
     r"|(?P<stop>[.;!?…]+)"
     r"|(?P<comma>[,:])"
-    r"|(?P<dash>[-‐–—])"
+    r"|(?P<dash>[-‐–—])",
+    flags=re.IGNORECASE,  # "8 PM", "5 AM"
 )
 _THOUSANDS = re.compile(r"\d{1,3}(?:[.,]\d{3})+")
 _GROUPED = re.compile(r"\d+(?:[.,]\d+)+")
 _LOW_PUNCT = {"stop": ".", "comma": ",", "dash": "-"}
 _CLITICS = frozenset({"s", "t", "re", "ll", "ve", "d", "m"})
 
+
+# Words compared inside the functions below, named so that each has a case in tests/test_voice_words.py.
+_ARTICLE_WORDS = frozenset("un una a an one".split())  # never a seal digit or an id on their own
+_INDEFINITE = frozenset("un una a an".split())
+_EN_INDEFINITE = frozenset("a an".split())  # "a dozen", "a thousand", "fifteen hundred"
+_ES_INDEFINITE = frozenset("un una".split())  # "un"/"una" are 1 only as a count: never a digit of an id
+_THOUSAND = frozenset("mil thousand".split())
+_REPEATS = frozenset("doble double triple".split())  # "doble ocho": 88
+_AND_A_HALF = ("y media", "and a half")  # "dos docenas y media": +6
+_TRAILER_ARTICLES = frozenset("la el the".split())  # "la caja viene abierta"
+_DE_ARTICLES = frozenset("la el".split())  # "... tres de la caja": "de" ends the seal's digits
+_AND = frozenset("y and".split())  # "a las ocho y diez", "cuarenta y ocho"
+_KEYWORD_TAILS = tuple(tuple(p.split()) for p in ("de seguridad",))  # "sello de seguridad" is the keyword itself
 
 def _tokens(text: str) -> list[tuple[str, str]]:
     """(kind, text) per token. 'twenty-four' splits into words; 'MX-48213' stays one token. The 's' of "seal's" (and
@@ -549,18 +759,23 @@ def _en_tens_part(ws: list[str], j: int) -> tuple[int, int] | None:
 
 def _en_below_1000(ws: list[str], i: int) -> tuple[int, int] | None:
     w = _w(ws, i)
-    m = _EN_ONES.get(w) or _EN_TEENS.get(w) or (1 if w in ("a", "an") else None)  # "fifteen hundred"
+    m = _EN_ONES.get(w) or _EN_TEENS.get(w) or (1 if w in _EN_INDEFINITE else None)  # "fifteen hundred"
     if m is not None and _w(ws, i + 1) == "hundred":
         j = i + 2
         t = _en_tens_part(ws, j + 1 if _w(ws, j) == "and" else j)
         return (m * 100 + t[0], t[1]) if t else (m * 100, j)
-    return _en_tens_part(ws, i)
+    t = _en_tens_part(ws, i)
+    if t and t[0] > 20 and t[0] % 10 and _w(ws, t[1]) == "hundred":  # "forty-eight hundred kilos": 4800
+        j = t[1] + 1
+        r = _en_tens_part(ws, j + 1 if _w(ws, j) == "and" else j)
+        return (t[0] * 100 + r[0], r[1]) if r else (t[0] * 100, j)
+    return t
 
 
 def _en_cardinal(ws: list[str], i: int) -> tuple[int, int] | None:
     if _w(ws, i) == "zero":
         return 0, i + 1
-    if _w(ws, i) in ("a", "an") and _w(ws, i + 1) == "thousand":
+    if _w(ws, i) in _EN_INDEFINITE and _w(ws, i + 1) == "thousand":
         a: tuple[int, int] | None = (1, i + 1)
     else:
         a = _en_below_1000(ws, i)
@@ -577,7 +792,7 @@ def _number_at(ws: list[str], i: int, dozens: bool = True) -> tuple[int | None, 
     base: tuple[int | None, int] | None
     if w.isdecimal():
         base = (int(w), i + 1)
-        if _w(ws, i + 1) in ("mil", "thousand"):
+        if _w(ws, i + 1) in _THOUSAND:
             base = (int(w) * 1000, i + 2)
     elif _GROUPED.fullmatch(w):  # a 'num' token: "4,800" is 4800, "4.5" is not a count
         base = (int(re.sub(r"\D", "", w)) if _THOUSANDS.fullmatch(w) else None, i + 1)
@@ -589,11 +804,11 @@ def _number_at(ws: list[str], i: int, dozens: bool = True) -> tuple[int | None, 
     if base is None:
         if w in _DOZEN:
             base = (1, i)
-        elif w in ("a", "an") and _w(ws, i + 1) == "dozen":
+        elif w in _EN_INDEFINITE and _w(ws, i + 1) == "dozen":
             base = (1, i + 1)
         elif w == "media" and _w(ws, i + 1) == "docena":
             return 6, i + 2
-        elif w == "half" and _w(ws, i + 1) in ("a", "an") and _w(ws, i + 2) == "dozen":
+        elif w == "half" and _w(ws, i + 1) in _EN_INDEFINITE and _w(ws, i + 2) == "dozen":
             return 6, i + 3
         elif w in _DOZENS:
             return None, i + 1  # "docenas de cajas": how many?
@@ -603,9 +818,9 @@ def _number_at(ws: list[str], i: int, dozens: bool = True) -> tuple[int | None, 
     if _w(ws, j) not in _DOZEN | _DOZENS or v is None:
         return base
     v, j = v * 12, j + 1
-    if ws[j:j + 2] == ["y", "media"]:
+    if " ".join(ws[j:j + 2]) in _AND_A_HALF:
         v, j = v + 6, j + 2
-    elif ws[j:j + 3] == ["and", "a", "half"]:
+    elif " ".join(ws[j:j + 3]) in _AND_A_HALF:
         v, j = v + 6, j + 3
     return v, j
 
@@ -647,7 +862,7 @@ def _lowercase_letters(toks: list[tuple[str, str]], lows: list[str], i: int) -> 
             return True
         if any(ch.isdigit() for ch in text):
             return not word
-        if lows[j] not in ("un", "una") and _number_at(lows, j, dozens=False):
+        if lows[j] not in _ES_INDEFINITE and _number_at(lows, j, dozens=False):
             return not word and (_seal_like(toks, lows, j) or all(len(lows[q]) == 1 for q in range(i, j)
                                                                   if toks[q][0] == "word"))
         if lows[j] in _WORD_LETTERS and _letters(toks, lows, j - 1) and len(lows[j - 1]) == 1:
@@ -688,17 +903,29 @@ def _word_letter(lows: list[str], i: int) -> str:
 def _seal_like(toks: list[tuple[str, str]], lows: list[str], i: int) -> bool:
     """Would the token at i continue a seal id (and not start a count or a weight)?"""
     kind, text = toks[i]
-    if kind not in ("word", "num") or text in _NOT_SEAL or lows[i] in ("un", "una"):
+    if kind not in ("word", "num") or text in _NOT_SEAL or lows[i] in _ES_INDEFINITE:
         return False
     n = _number_at(lows, i, dozens=False)
     if n:
         after = _w(lows, n[1])
         return not (_unit(lows, n[1]) or after in _WEIGHT_UNITS)
     nxt = _w(lows, i + 1)
+    if lows[i] in _RADIO:
+        return _radio_letter(toks, lows, i)
     return lows[i] in _SPELLED or (lows[i], nxt) in _LETTER_PAIRS or bool(_word_letter(lows, i)) or (
-        lows[i] in ("doble", "double", "triple") and nxt in _DIGIT_OF) or _lowercase_letters(toks, lows, i) or bool(
+        lows[i] in _REPEATS and nxt in _DIGIT_OF) or _lowercase_letters(toks, lows, i) or bool(
         re.fullmatch(r"[A-Za-z0-9-]+", text) and (any(c.isdigit() for c in text) or (text.isupper() and len(text) <= 3))
     )
+
+
+def _radio_letter(toks: list[tuple[str, str]], lows: list[str], i: int) -> bool:
+    """Is the radio word at i a letter: followed, past commas, by another radio word, a spelled letter, a dash or
+    digits ('Papa, Lima, six ...'; not 'Mike from dispatch')?"""
+    j = i + 1
+    while j < len(toks) and toks[j][0] == "comma":
+        j += 1
+    return j < len(toks) and (lows[j] in _RADIO or lows[j] in _SPELLED or toks[j][0] == "dash" or lows[j] in _SEAL_DASH
+                              or any(ch.isdigit() for ch in toks[j][1]) or bool(_number_at(lows, j, dozens=False)))
 
 
 def _number_run(lows: list[str], j: int) -> tuple[list[tuple[int, int, int]], int]:
@@ -721,7 +948,7 @@ def _id_shaped(toks: list[tuple[str, str]], lows: list[str], j: int) -> bool:
     one small number ('cuatro ocho dos tres uno', 'cuarenta y ocho mil ...', '48231')? After a correction this is a
     second seal; a small number there ('..., no, trece') may correct the count."""
     kind, text = toks[j]
-    if kind not in ("word", "num") or text in _NOT_SEAL or lows[j] in ("un", "una", "a", "an"):
+    if kind not in ("word", "num") or text in _NOT_SEAL or lows[j] in _INDEFINITE:
         return False
     if _number_at(lows, j, dozens=False):
         groups, e = _number_run(lows, j)
@@ -745,7 +972,7 @@ def _continues_seal(toks: list[tuple[str, str]], lows: list[str], j: int) -> boo
     """Would the word at j be read as more of the id right after its digits ('guión', 'oh', 'doble ocho', 'AB')?"""
     w, nxt, text = lows[j], _w(lows, j + 1), toks[j][1]
     return ((w in _SPELLED and w not in _EN_SPELLED) or w in _SEAL_DASH or w == "oh" or (
-            w in ("doble", "double", "triple") and nxt in _DIGIT_OF)
+            w in _REPEATS and nxt in _DIGIT_OF)
             or (w, nxt) in _LETTER_PAIRS or any(ch.isdigit() for ch in text)
             or (text.isupper() and text.isalpha() and len(text) <= 3 and text not in _NOT_SEAL and text != "I"))
 
@@ -755,7 +982,7 @@ def _ends_seal(lows: list[str], j: int) -> bool:
     w = lows[j]
     return (w in _ENDS_SEAL or w in _NEGATIONS or w in _NEGATED_CONTRACTIONS or w in _SPEECH_FILLERS
             or w in _SEAL_KEYWORDS or w in _ALTERNATIVES or bool(_phrase_at(lows, j, _CORRECTIONS))
-            or (w == "de" and _w(lows, j + 1) in ("la", "el")) or (w in _ID_NOUNS and not _unit(lows, j))
+            or (w == "de" and _w(lows, j + 1) in _DE_ARTICLES) or (w in _ID_NOUNS and not _unit(lows, j))
             or (w in _NEGATION_GAP and bool(_negated_word(lows, j)[0])))  # "... tres está dañado", "is broken"
 
 
@@ -777,6 +1004,15 @@ def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[s
         digits = any(ch.isdigit() for ch in "".join(out))
         if kind in ("stop", "clitic"):
             break
+        if out and out[-1][-1:].isalpha() and (n := _phrase_at(lows, i, _AS_IN)) and (
+                (w := _w(lows, i + n))[:1].upper() == out[-1][-1] and w.isalpha() and len(w) > 2
+                and w not in _NUMBER_WORDS and w not in _SPELLED):
+            i += n + 1  # "T as in Tom", "pe de Pablo": the letter said with a word that starts with it
+            continue
+        if low in _RADIO and not digits and _radio_letter(toks, lows, i):
+            out.append(_RADIO[low])  # "Whiskey, India, three, ...": the radio alphabet
+            i += 1
+            continue
         if kind == "comma" or (low in _SPEECH_FILLERS and not (not digits and _word_letter(lows, i))):
             i += 1
             continue
@@ -788,7 +1024,7 @@ def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[s
             i += 1
             continue
         nxt = _w(lows, i + 1)
-        if low in ("doble", "double", "triple") and nxt in _DIGIT_OF:
+        if low in _REPEATS and nxt in _DIGIT_OF:
             out.append(_DIGIT_OF[nxt] * (3 if low == "triple" else 2))
             i = run_end = i + 2
             continue
@@ -805,7 +1041,7 @@ def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[s
             out.append(text.upper())  # "... two one three dash b": the letter after the dash is the id's
             i += 1
             continue
-        if low not in ("un", "una") and _number_at(lows, i, dozens=False):
+        if low not in _ES_INDEFINITE and _number_at(lows, i, dozens=False):
             groups, j = _number_run(lows, i)
             if not groups:  # "4.5": a number, but not digits of an id
                 break
@@ -859,7 +1095,8 @@ def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[s
             if not lows[j - 1].isdecimal():
                 run_end = j
             continue
-        if low in _SPELLED and not (digits and low in _EN_SPELLED and out[-1] != "-"):  # "... 7731 gee thanks"
+        if low in _SPELLED and not (digits and low in _EN_SPELLED and out[-1] != "-") and not (
+                len(text) > 1 and text.isupper()):  # "... 7731 gee thanks"; "AR 4471" is written letters, not "ar"
             out.append(_SPELLED[low])
             i += 1
             continue
@@ -879,6 +1116,10 @@ def _seal_value(toks: list[tuple[str, str]], lows: list[str], i: int) -> tuple[s
             text = text.upper()  # "mx guión cuatro ..." reads as "MX guión cuatro ..."
         if digits and text == "I":
             break  # "Seal MX-48213 I have twelve pallets": the English pronoun, not a letter of the seal
+        if digits and text.isalpha() and text.isupper() and (toks[i - 1][0] == "comma" or _w(lows, i + 1) in (
+                _NUMBER_NOUNS | _SEAL_ABBREVIATIONS) or any(ch.isdigit() for ch in (toks[i + 1][1] if i + 1 < len(toks)
+                                                                                     else ""))):
+            break  # "seal MX-48213, PO number 55123", "... BOL 77812": an acronym is never glued to the id
         if text not in _NOT_SEAL and re.fullmatch(r"[A-Za-z0-9\-]+", text) and (
                 any(ch.isdigit() for ch in text) or (text.isupper() and len(text) <= 3)):
             # "MX MX guión ..." (real transcript): a letter group repeated back to back is one ASR stutter.
@@ -909,7 +1150,7 @@ def _past_correction(toks: list[tuple[str, str]], lows: list[str], i: int) -> tu
     """From the word at i that ended an id: (the token after the corrections, alternatives and fillers said there, and
     whether a correction or an alternative was said). Past one, also 'es'/'the'...: 'no, perdón, el MX-48231'."""
     j, corrected = i, False
-    while j < len(toks) and j - i < 12:
+    while j < len(toks) and toks[j][0] != "stop":
         if toks[j][0] == "comma":
             j += 1
             continue
@@ -942,10 +1183,10 @@ def _negation_at(toks: list[tuple[str, str]], lows: list[str], j: int) -> int:
 def _negated_word(lows: list[str], j: int) -> tuple[str, int]:
     """What the negation ending before j negates: ('bad', end) for a broken/missing word ('no está roto', "isn't
     broken", 'no falta': the seal is fine), ('match', end) for a matching word ('no coincide', "doesn't match": it is
-    not), ('', j) for anything else ('el sello no es MX-48213')."""
+    not), ('', j) for anything else ('el sello no es MX-48213'). Only words of _NEGATION_GAP stand between."""
     e = j
-    for _ in range(4):
-        w = _w(lows, e)
+    while e < len(lows):
+        w = lows[e]
         if w in _SEAL_BAD:
             return "bad", e + 1
         if w in _SEAL_MATCH:
@@ -957,120 +1198,309 @@ def _negated_word(lows: list[str], j: int) -> tuple[str, int]:
 
 
 def _negated(phrase: list[str]) -> str:
-    return f"negated seal in transcript: {' '.join(phrase)!r}"
+    return f"negated seal in transcript: {_said(phrase)!r}"
 
 
 def _reported(phrase: list[str]) -> str:
-    return f"seal reported broken, missing or not matching in transcript: {' '.join(phrase)!r}"
+    return f"seal reported broken, missing or not matching in transcript: {_said(phrase)!r}"
 
 
 def _hedged(phrase: list[str]) -> str:
-    return f"hedged seal in transcript: {' '.join(phrase)!r}"
+    return f"hedged seal in transcript: {_said(phrase)!r}"
 
 
-def _negated_before(toks: list[tuple[str, str]], lows: list[str], j: int) -> bool:
-    """Is the word at j negated by what comes right before it ('no falta', "doesn't match", 'no se ha abierto')?"""
+def _said(phrase: list[str]) -> str:
+    """The words of a reason; a long stretch keeps its first 4 and last 6 words."""
+    return " ".join(phrase) if len(phrase) <= 12 else " ".join(phrase[:4] + ["…"] + phrase[-6:])
+
+
+def _sentence(ws: list[str], i: int) -> tuple[int, int]:
+    """[start, end) of the sentence holding ws[i]: between stops ('.'), the whole note when it has none (as the local
+    ASR writes it). Every scan for a hedge, a source or a negation ends here (ORDER Nube-10 item 9)."""
+    a = i
+    while a > 0 and ws[a - 1] != ".":
+        a -= 1
+    b = i
+    while b < len(ws) and ws[b] != ".":
+        b += 1
+    return a, b
+
+
+def _negated_before(ws: list[str], j: int) -> bool:
+    """Is the word at j negated by what comes right before it, past only words of _NEGATION_GAP ('no falta', 'nada
+    roto', 'nothing missing', "doesn't match", 'no se ha abierto')? Not after 'if'/'si': "if I'm not wrong" is no
+    affirmation."""
     p = j - 1
-    while p >= 0 and j - p <= 4 and lows[p] in _NEGATION_GAP:
+    while p >= 0 and ws[p] in _NEGATION_GAP:
         p -= 1
-    return p >= 0 and (lows[p] in _NEGATIONS or (toks[p] == ("clitic", "t") and _w(lows, p - 1) in
-                                                 _NEGATED_CONTRACTIONS))
+    if p < 0:
+        return False
+    if ws[p] in _NEGATIONS or ws[p] in _AFFIRMING_NEGATIONS:
+        q = p - 1
+    elif ws[p] == "t" and _w(ws, p - 1) in _NEGATED_CONTRACTIONS:
+        q = p - 2
+    else:
+        return False
+    while q >= 0 and ws[q] in _CONDITION_GAP:
+        q -= 1
+    return not (q >= 0 and ws[q] in _CONDITIONS)
+
+
+def _inside(ws: list[str], j: int, phrases: tuple[tuple[str, ...], ...]) -> bool:
+    """Is the word at j part of one of these phrases ('rest area', 'pulled in')?"""
+    return any(tuple(ws[j - k:j - k + len(p)]) == p for p in phrases for k, w in enumerate(p) if w == ws[j] and j >= k)
+
+
+def _bad_at(ws: list[str], j: int) -> int:
+    """Length of a damage word or phrase at j ('roto', 'cracked', 'se cayó', 'no sirve'), 0 if none, if it is negated
+    ('nada roto', 'no está roto', 'nothing broken') or one of the plain non-seal uses of _BAD_NOT_SEAL ('pulled in')."""
+    n = _phrase_at(ws, j, _SEAL_BAD_PHRASES) or (1 if ws[j] in _SEAL_BAD else 0)
+    if not n or _inside(ws, j, _BAD_NOT_SEAL) or (ws[j] in _SEAL_BAD and _negated_before(ws, j)):
+        return 0
+    return n
+
+
+def _clause_end(ws: list[str], j: int) -> int:
+    while j < len(ws) and ws[j] not in (".", ","):
+        j += 1
+    return j
+
+
+def _denied_match(ws: list[str], j: int) -> int:
+    """After a negation ending before j: the end of a match word said later in the same clause, whatever words stand
+    between ('no me coincide', "doesn't even match", 'no coincide con el material peligroso'), or 0."""
+    return next((q + 1 for q in range(j, _clause_end(ws, j)) if ws[q] in _SEAL_MATCH), 0)
+
+
+def _missing_at(toks: list[tuple[str, str]], lows: list[str], j: int) -> int:
+    """'no está', "don't have it", 'no lo tengo', "isn't there": a negation at j, words of _MISSING_CHAIN, then the end
+    of the clause. Its end, or 0."""
+    n = _negation_at(toks, lows, j)
+    q = j + n
+    if not n or _w(lows, q) not in _MISSING_CHAIN:
+        return 0
+    while q < len(lows) and lows[q] in _MISSING_CHAIN:
+        q += 1
+    return q if q == len(lows) or lows[q] in (".", ",") or lows[q] in _CLAUSE_JOINS else 0
+
+
+def _retraction_at(ws: list[str], j: int) -> int:
+    """Length of a retraction at j: 'mentira', 'olvídalo', 'never mind', or a pronoun for what was said and, later in
+    its clause, a word that puts it elsewhere ('ese es el de la otra caja', 'ese era el de ayer', "that's from my last
+    load"). 0 if none."""
+    if n := _phrase_at(ws, j, _RETRACTIONS):
+        return n
+    if (n := _phrase_at(ws, j, _RETRACTIONS_AT_END)) and _clause_end(ws, j) == j + n:
+        return n  # "1,400's not right.", "..., no va."
+    if ws[j] in _RETRACT_PRONOUNS:  # "that's the shipper's count", "eso me lo dictó el de la oficina": someone else's
+        return next((q + 1 - j for q in range(j + 1, _clause_end(ws, j)) if ws[q] in _RETRACT_PLACES
+                     or ws[q] in _PARTIES or (ws[q] in _DOCS and ws[q] not in _ARTICLE_DOCS) or ws[q] in _TELLING), 0)
+    if ws[j] in _GIVEN_WHAT and (_w(ws, j + 1) in _TELLING or _w(ws, j + 1) in _GIVING or _w(ws, j + 1) in (
+            _PARTY_ACTS)):
+        return 2  # "Lo de los sacos me lo pasó el de báscula, él los contó": what was said came from someone else
+    n = 2 if _w(ws, j) in _NEGATED_CONTRACTIONS and _w(ws, j + 1) == "t" else int(_w(ws, j) in _NEGATIONS)
+    if n:  # "don't log that", "no lo apuntes", "no lo tomes en cuenta"
+        q = j + n
+        while _w(ws, q) in _DONT_USE_WHAT:
+            q += 1
+        if _w(ws, q) in _DONT_USE:
+            return q + 1 - j
+    if ws[j] == "ni":  # "ni las tarimas ni el sello"
+        q = j + 1
+        while ws[q:q + 1] and ws[q] in _ID_ARTICLES:
+            q += 1
+        return q + 1 - j if _w(ws, q) == "|" or _w(ws, q) in _SEAL_KEYWORDS or _is_unit(_w(ws, q)) else 0
+    return 0
+
+
+def _about_cargo(ws: list[str], j: int) -> bool:
+    """Does the negation ending before j speak of the cargo ('no hay material peligroso', 'no hazmat', 'nothing
+    hazardous'), past only words of _CARGO_GAP?"""
+    while j < len(ws) and ws[j] in _CARGO_GAP:
+        j += 1
+    return _w(ws, j) in _HAZMAT
+
+
+def _hedge_in(ws: list[str], a: int, b: int, skip: frozenset[int] | set[int] = frozenset()) -> tuple[int, int]:
+    """The first hedge in ws[a:b]: (start, end), or (-1, -1). A hedge covers every value of its sentence, before or
+    after it ('Creo que lo que traigo son doce tarimas', 'doce tarimas, creo', 'Six boxes, I think, the seal ...');
+    one said between a seal keyword and its id (skip) is that seal's alone ('doce tarimas, el sello creo que es ...'),
+    and one said right before a weight is the weight's ('maybe 14,000 pounds')."""
+    return next(((j, j + n) for j in range(a, b) if j not in skip and (n := _phrase_at(ws, j, _HEDGES))
+                 and not _weight_after(ws, j + n)), (-1, -1))
+
+
+def _weight_after(ws: list[str], j: int) -> bool:
+    """Does a weight follow at j ('maybe 14,000 pounds', 'como 38 mil libras')? A hedge said there is the weight's."""
+    while _w(ws, j) in _WEIGHT_GAP:
+        j += 1
+    n = _number_at(ws, j, dozens=False)
+    return bool(n) and _w(ws, n[1]) in _WEIGHT_UNITS
 
 
 def _seal_denied_before(toks: list[tuple[str, str]], lows: list[str], k: int) -> str:
-    """'no traigo el sello', 'falta el sello', 'sin sello', "doesn't have a seal": why the seal said at k is denied."""
-    for j in range(k - 1, max(k - 5, -1), -1):
+    """Why the seal said at k is denied by what its sentence says before it: a negation, 'sin' or a negated match right
+    before it ('no traigo el sello', 'sin sello', 'no coincide el sello'), or a damage word anywhere before it ('they
+    broke the seal', 'le quitaron el sello', 'falta el sello')."""
+    a, _ = _sentence(lows, k)
+    for j in range(k - 1, a - 1, -1):
         if toks[j][0] not in ("word", "clitic"):
-            return ""
-        if lows[j] in _SEAL_BAD or lows[j] in _SEAL_MATCH:  # "falta el sello"; "no falta el sello", "coincide el sello"
-            return "" if (lows[j] in _SEAL_BAD) == _negated_before(toks, lows, j) else _reported(lows[j:k + 1])
+            break
+        if lows[j] in _SEAL_MATCH:  # "coincide el sello" says it is fine; "no coincide el sello" that it is not
+            if _negated_before(lows, j):
+                return _reported(lows[j - 1:k + 1])
+            break
         if lows[j] in _NEGATIONS or (toks[j] == ("clitic", "t") and _w(lows, j - 1) in _NEGATED_CONTRACTIONS):
             return _negated(lows[j - (lows[j] == "t"):k + 1])
-        if lows[j] in ("sin", "without"):
+        if lows[j] in _WITHOUT:
             return _reported(lows[j:k + 1])
         if lows[j] not in _SEAL_BEFORE_SKIP:
-            return ""
+            break
+    for j in range(a, k):
+        if n := _bad_at(lows, j):
+            return _reported(lows[j:k + 1])
+        if (n := _negation_at(toks, lows, j)) and (e := _denied_match(lows, j + n)) and e <= k:
+            return _reported(lows[j:k + 1])
     return ""
 
 
 def _hedged_before(toks: list[tuple[str, str]], lows: list[str], k: int) -> str:
-    """'creo que el sello es ...', 'I think the seal is ...': a hedge up to 6 words before the keyword, in the same
-    sentence."""
-    a = k
-    while a > 0 and k - a < 6 and toks[a - 1][0] != "stop":
-        a -= 1
-    return next((" ".join(lows[j:k + 1]) for j in range(a, k) if _phrase_at(lows, j, _HEDGES)), "")
+    """'creo que el sello es ...', 'No sé si el sello es ...': a hedge anywhere before the keyword in its sentence."""
+    a, _ = _sentence(lows, k)
+    h, _ = _hedge_in(lows, a, k)
+    return " ".join(lows[h:k + 1]) if h >= 0 else ""
 
 
-def _is_source(ws: list[str], j: int, verbs: bool = True) -> bool:
-    """Is the word at j one for the paperwork or another person ('carta', 'dispatcher', 'dijeron', 'el otro chofer'),
-    and not a document named by its number ('factura 77812', 'la factura es 77812')? verbs=False: not a reporting
-    verb ('dice', 'said'), which after the value is mostly the driver's own ('twelve pallets, like I said')."""
-    w = _w(ws, j)
-    if not (w in _SOURCES or _phrase_at(ws, j, _SOURCE_PHRASES)) or (w in ("según", "segun") and _w(ws, j + 1) == "yo"):
-        return False
-    if not verbs and w in _REPORTING:
-        return False
-    q = j + 2 if _w(ws, j + 1) in _ID_LEAD else j + 1  # "factura 77812", "la factura es 77812": the document's number
-    n = _number_at(ws, q, dozens=False) if _w(ws, q) not in ("un", "una") else None
-    return not n or _unit(ws, n[1])  # "me dijeron 20 tarimas", "dispatch says 6 drums": a count, from someone else
+def _source_at(ws: list[str], j: int, a: int, b: int, after: bool = False) -> int:
+    """Length of a source said at j, in the sentence ws[a:b] of a value, or 0 (ORDER Nube-10 item 4).
+    - a verb of telling or giving, with any subject: 'dice', 'me dijeron', 'me pasó', 'gave me', 'per', 'según';
+    - a document or device not named by its number ('the sheet has ...', 'en la remisión viene ...'; not 'factura
+      77812');
+    - a person or place, unless the driver is the one acting ('vengo de la planta', 'traigo ... del cliente', 'I came
+      straight from the shipper', 'ya pasé la caseta') and nobody counts, seals, tells or gives in the sentence.
+    after=True (said after the value): not a verb of telling, mostly the driver's own ('twelve pallets, like I
+    said')."""
+    w = ws[j]
+    if _inside(ws, j, _HEDGES):
+        return 0  # "I'd say", "give or take", "según yo": the hedge's word
+    if w in _SCOPING:
+        return 1
+    q = j - 1
+    while q >= a and ws[q] in _GIVEN_WHAT:
+        q -= 1
+    given = q >= a and ws[q] in _GIVEN_TO  # "me pasó", "me las contó el muchacho", "nos lo dijeron"
+    if w in _TELLING:
+        return 0 if after and not given else 1
+    if w in _GIVING:
+        return 1 if given else 0
+    if w in _ACTS_BY_OTHERS:  # "The forklift driver counted nineteen pallets"; not "I counted", "I haven't counted"
+        p = j - 1
+        while p >= a and ws[p] in _AUXILIARIES:
+            p -= 1
+        return 0 if p >= a and ws[p] in _FIRST_PERSON else 1
+    n = _phrase_at(ws, j, _SOURCE_PHRASES) or (1 if w in _DOCS or w in _PARTIES else 0)
+    if w in _ARTICLE_DOCS and _w(ws, j - 1) not in _DOC_DETERMINERS:
+        return 0  # "toallas de papel", "printer paper", "it's Bill with eleven pallets"
+    if not n or _numbered(ws, j):
+        return 0  # "factura 77812", "la factura es 77812": the document's number
+    if w in _DOCS:
+        p = j - 1
+        while p >= a and (ws[p] in _ID_ARTICLES or ws[p] in _MATCH_GAP):
+            p -= 1
+        return 0 if p >= a and ws[p] in _SEAL_MATCH and not _negated_before(ws, p) else n  # "it matches the paperwork"
+    if any(ws[q] in _PARTY_ACTS or ws[q] in _TELLING or (ws[q] in _GIVING and (
+            _w(ws, q - 1) in _GIVEN_TO or (_w(ws, q - 1) in _GIVEN_WHAT and _w(ws, q - 2) in _GIVEN_TO)))
+           for q in range(a, b)):
+        return n  # "el cliente contó ...", "en la planta me contaron ...", "the shipper counted them"
+    p = j - 1
+    while p >= a and ws[p] in _ID_ARTICLES:
+        p -= 1
+    return 0 if p >= a and ws[p] in _DRIVER_ACTING else n
+
+
+def _numbered(ws: list[str], j: int) -> bool:
+    """Is the document or party at j named by the number after it ('factura 77812', 'BOL number 77812')? Not by a
+    count: 'me dijeron 20 tarimas', 'the sheet has 6 drums'."""
+    q = j + 1
+    while _w(ws, q) in _ID_LEAD or _w(ws, q) in _NUMBER_NOUNS:
+        q += 1
+    if _w(ws, q) == "|":
+        return True  # its number was set aside as a seal's: "con sello, la factura es 48213"
+    n = _number_at(ws, q, dozens=False) if _w(ws, q) not in _ES_INDEFINITE else None
+    return bool(n) and not _unit(ws, n[1])
 
 
 def _source_before(toks: list[tuple[str, str]], lows: list[str], k: int) -> str:
-    """'según la carta porte el sello es ...', 'the BOL has seal ...', 'dispatch told me the seal is ...': a word for
-    the paperwork or another person up to 8 words before k, same sentence; past a comma only after 'según', 'per'.
-    Not one followed by a number: 'factura 77812, sello ...' names an invoice."""
-    a, comma = k, False
-    while a > 0 and k - a < 8 and toks[a - 1][0] != "stop":
-        a -= 1
-    for j in range(k - 1, a - 1, -1):
-        comma = comma or toks[j][0] == "comma"
-        if _is_source(lows, j) and (not comma or _SCOPING & set(lows[a:j + 1])):
-            return " ".join(lows[j:k + 1])
-    return ""
+    """'según la carta porte el sello es ...', 'the BOL has seal ...', 'La oficina me pasó el sello ...': a source
+    anywhere before the keyword k in its sentence (_source_at)."""
+    a, b = _sentence(lows, k)
+    return next((_said(lows[j:k + 1]) for j in range(a, k) if _source_at(lows, j, a, b)), "")
 
 
 def _seal_denied_after(toks: list[tuple[str, str]], lows: list[str], k: int, i: int) -> str:
-    """'el sello MX-48213 viene roto', 'seal MX-48213 is missing', '... no coincide', '..., creo': why the seal said at
-    k is denied or hedged, looking from i up to the end of the clause (a stop, a number, another seal) and 6 words at
-    most. A bare negation counts before a comma only ('..., no traigo material peligroso' is about something else),
-    and never one about the cargo ('... no hay material peligroso'). 'no está roto', 'no falta nada' say it is fine."""
-    comma, words, negated = False, 0, ""
+    """Why the seal said at k (its id read up to i) cannot be taken, from the rest of its sentence: a hedge (anywhere
+    in it: '..., creo', '..., if I'm not wrong'), an approximation right after it ('... o así'), a source ('MX 55012,
+    eso dice la hoja'; not 'it matches the paperwork'), a part ('..., last four', '183 something'), a letter said
+    after the digits ('with a B at the end'), or a bare negation before any comma, not about the cargo; then, to the
+    end of the note, a damaged, missing, non-matching or retracted seal (_seal_reported_later)."""
+    comma, negated = False, ""
     j = i - 1
     while j > k and (toks[j][0] == "comma" or lows[j] in _SPEECH_FILLERS):  # the id reader steps over these
         comma, j = comma or toks[j][0] == "comma", j - 1
-    j, denial, affirmed = i, False, False
-    while j < len(toks) and words < 8:
+    a, b = _sentence(lows, k)
+    b = max(b, _sentence(lows, min(i, len(lows) - 1))[1]) if i < len(lows) else b
+    if (h := _hedge_in(lows, i, b))[0] >= 0:
+        return _hedged(lows[k:h[1]])
+    j, denial, affirmed, first = i, False, False, True
+    while j < b:
         kind, text = toks[j]
-        if kind == "stop" or lows[j] in _SEAL_KEYWORDS or any(ch.isdigit() for ch in text) or (
-                lows[j] not in ("un", "una", "a", "an", "one") and _number_at(lows, j, dozens=False)):
-            break
         if kind in ("comma", "dash"):
             comma, j = comma or kind == "comma", j + 1
+            denial = denial and kind != "comma"  # "..., no es el de la carta": a denial and a document in one clause
             continue
-        if words == 0 and (n := _phrase_at(lows, j, _HEDGES_AFTER) or _phrase_at(lows, j, _APPROX_AFTER)):
+        if first and (n := _phrase_at(lows, j, _APPROX_AFTER)):
             return _hedged(lows[k:j + n])
         if n := _negation_at(toks, lows, j):
             what, e = _negated_word(lows, j + n)
-            if what == "match":
-                return _reported(lows[k:e])
-            denial = denial or not what
-            if not what and not comma and not negated and not _HAZMAT & set(lows[j + n:j + n + 4]) and words < 6:
+            if what == "match" or (e := _denied_match(lows, j + n)):  # "no coincide", "no me coincide"
+                return _reported(lows[k:max(e, j + n)])
+            what, e = _negated_word(lows, j + n)
+            denial = denial or (not what and not _about_cargo(lows, j + n))
+            if not what and not comma and not negated and not _about_cargo(lows, j + n):
                 negated = _negated(lows[k:j + n])
-            j, words = max(e, j + n), words + 1
+            j, first = max(e, j + n), False
             continue
-        if (lows[j] in _SEAL_BAD and words < 6) or (lows[j] in _SOURCES and denial):  # "..., no es el de la carta"
+        if (lows[j] in _CLAUSE_BAD and not _negated_before(lows, j)) or (denial and (
+                lows[j] in _DOCS or lows[j] in _PARTIES)):  # "... is off", "..., no es el de la carta"
             return _reported(lows[k:j + 1])
-        if _is_source(lows, j, verbs=False) and not affirmed:  # "MX 55012, eso dice la hoja", not "it matches the ..."
-            return f"seal said from the paperwork or someone else: {' '.join(lows[k:j + 1])!r}"
+        if _source_at(lows, j, a, b, after=True) and not affirmed:  # "MX 55012, eso dice la hoja"
+            return f"seal said from the paperwork or someone else: {_said(lows[k:j + 1])!r}"
         affirmed = affirmed or lows[j] in _SEAL_MATCH
-        if (lows[j] in _SEAL_PARTIAL and words < 6) or (words <= 1 and lows[j] in ("algo", "something")):
-            return f"part of a seal said in transcript: {' '.join(lows[k:j + 1])!r}"  # "183 something", "y algo"
-        if words < 6 and (lows[j] in _LETTER_WORDS or (kind == "word" and len(text) == 1 and text.isalpha() and (
-                text.isupper() and text != "I" or _letters(toks, lows, j)))):
-            return f"seal letter said after the digits: {' '.join(lows[k:j + 1])!r}"  # "with a B at the end"
-        words, j = words + 1, j + 1
-    return negated
+        if lows[j] in _SEAL_PARTIAL or (first and lows[j] in _SOMETHING):
+            return f"part of a seal said in transcript: {_said(lows[k:j + 1])!r}"  # "183 something", "y algo"
+        if lows[j] in _LETTER_WORDS or (kind == "word" and len(text) == 1 and text.isalpha() and (
+                text.isupper() and text != "I" or _letters(toks, lows, j))):
+            return f"seal letter said after the digits: {_said(lows[k:j + 1])!r}"  # "with a B at the end"
+        j, first = j + 1, False
+    return negated or _seal_reported_later(toks, lows, k, i)
+
+
+def _seal_reported_later(toks: list[tuple[str, str]], lows: list[str], k: int, i: int) -> str:
+    """A damaged, missing or non-matching seal said anywhere after the seal at k (its id read up to i), to the end of
+    the note (ORDER Nube-10 item 2): '... Está roto.', "... It's broken.", '... no me coincide', '..., no está.',
+    "..., don't have it.", '... cuando lo revisé ya estaba roto'."""
+    for j in range(i, len(lows)):
+        if lows[j] in _SEAL_KEYWORDS or lows[j] in _SEAL_PLURALS:
+            break  # the next mention reads on from its own id
+        if n := _bad_at(lows, j):
+            return _reported(lows[k:j + n])
+        if (n := _negation_at(toks, lows, j)) and (e := _denied_match(lows, j + n) or _missing_at(toks, lows, j)):
+            return _reported(lows[k:e])
+        q = j + n + (_w(lows, j + n) in _COPULAS)
+        if n and q < len(toks) and _id_shaped(toks, lows, q) and (any(ch.isdigit() for ch in toks[q][1]) or (
+                toks[q][1].isupper() and toks[q][1].isalpha())):
+            return _negated(lows[k:q + 1])  # "Espera, no, no es VN", "it isn't 48231": the id said again, negated
+    return ""
 
 
 def _past_lead_in(toks: list[tuple[str, str]], lows: list[str], i: int) -> int:
@@ -1082,13 +1512,39 @@ def _past_lead_in(toks: list[tuple[str, str]], lows: list[str], i: int) -> int:
             break  # "seal is el zee ...", "seal is em ex ...": the letters L, M
         elif toks[i][0] in ("comma", "clitic") or lows[i] in _SEAL_LEAD_IN or lows[i] in _SPEECH_FILLERS:
             i += 1
-        elif (lows[i], _w(lows, i + 1)) == ("de", "seguridad"):
-            i += 2
+        elif n := _phrase_at(lows, i, _KEYWORD_TAILS):
+            i += n
         elif n := _phrase_at(lows, i, _FILLER_PHRASES):
             i += n
         else:
             break
     return i
+
+
+def _spelled_at(toks: list[tuple[str, str]], lows: list[str], j: int) -> bool:
+    """Is the word at j a spelled letter name ('eme', 'equis', 'em', 'zee', 'doble u'), not letters written as such
+    ('AR 4471')?"""
+    return not toks[j][1].isupper() and (lows[j] in _SPELLED or bool(_word_letter(lows, j))
+                                         or (lows[j], _w(lows, j + 1)) in _LETTER_PAIRS)
+
+
+def _unclear_letter_start(toks: list[tuple[str, str]], lows: list[str], k: int, start: int) -> str:
+    """Why the id of the seal said at k, starting at start, does not read one way: its first word is also a lead-in, a
+    filler or an everyday word ('ese eme equis ...', 'te equis ...', 'el zee ...', 'em ex ...', ', see, MX-48213'), or
+    such a word stands right before a spelled letter that starts it ('el sello es eme equis ...', 'the seal is el em
+    ex ...'). '' when it reads one way."""
+    nxt = start + 1
+    while nxt < len(toks) and (toks[nxt][0] == "comma" or lows[nxt] in _SPEECH_FILLERS):
+        nxt += 1
+    if lows[start] in _LETTER_NAME_WORDS and nxt < len(toks) and (
+            _seal_like(toks, lows, nxt) or toks[nxt][0] == "dash" or lows[nxt] in _SEAL_DASH):
+        return f"unclear seal letters: {_said(lows[k:nxt + 1])!r}"
+    prev = start - 1
+    while prev > k and (toks[prev][0] == "comma" or lows[prev] in _SPEECH_FILLERS):
+        prev -= 1
+    if prev > k and lows[prev] in _LETTER_NAME_WORDS and _spelled_at(toks, lows, start):
+        return f"unclear seal letters: {_said(lows[k:start + 1])!r}"
+    return ""
 
 
 def _seal_start(toks: list[tuple[str, str]], lows: list[str], k: int, i: int) -> tuple[int, str]:
@@ -1106,12 +1562,12 @@ def _seal_start(toks: list[tuple[str, str]], lows: list[str], k: int, i: int) ->
         comma = comma or kind == "comma"
         if n := _negation_at(toks, lows, j):  # after a comma, or about the cargo, a negation is about something else
             what, e = _negated_word(lows, j + n)
-            if what == "match" or (not what and not comma and not _HAZMAT & set(lows[j + n:j + n + 4])):
+            if what == "match" or (not what and not comma and not _about_cargo(lows, j + n)):
                 why = why or (_reported(lows[k:e]) if what else _negated(lows[k:j + n]))
             j = max(e, j + n)
             continue
-        if w in _SEAL_BAD:
-            why, j = why or _reported(lows[k:j + 1]), j + 1
+        if n := _bad_at(lows, j):  # "seal's intact, nothing wrong with it" says it is fine
+            why, j = why or _reported(lows[k:j + n]), j + n
             continue
         if _phrase_at(lows, j, _CORRECTIONS):
             break  # "el sello es, perdón, trece": what follows may correct the count
@@ -1125,6 +1581,24 @@ def _seal_start(toks: list[tuple[str, str]], lows: list[str], k: int, i: int) ->
     return -1, why
 
 
+_PHONE = re.compile(r"\d{3}-\d{3}-\d{4}|\d{3}-\d{4}")
+_INTERSTATE = re.compile(r"I-\d{1,3}")  # "hit construction on I-65": a highway, never an id
+
+
+def _not_an_id(toks: list[tuple[str, str]], lows: list[str], j: int) -> bool:
+    """A token outside the seal mentions that is never another id: a word capitalized at the start of a sentence ('Y
+    pesa ...'), a size ('53-foot'), or a phone number ('956-555-0142') unless a correction stands right before it."""
+    text = toks[j][1]
+    if (text in _SENTENCE_WORDS and (j == 0 or toks[j - 1][0] == "stop")) or _INTERSTATE.fullmatch(text):
+        return True
+    if (m := re.fullmatch(r"\d+-?([^\W\d_]+)", lows[j])) and m.group(1) in _SIZE_UNITS:
+        return True
+    p = j - 1
+    while p >= 0 and (toks[p][0] == "comma" or lows[p] in _SPEECH_FILLERS or lows[p] in _AFTER_CORRECTION):
+        p -= 1
+    return bool(_PHONE.fullmatch(text)) and not _phrase_ending_at(lows, p + 1, _CORRECTIONS)
+
+
 def _other_ids(toks: list[tuple[str, str]], lows: list[str], covered: set[int]) -> list[tuple[str, int, int, bool]]:
     """Ids said outside every seal mention: (as read, start, end). 'Sorry, MX-48231.' after the seal is one; 'la factura
     es 48213', 'placas ABC-123', 'trailer number is 53' are not (a noun says what they number), nor counts, weights
@@ -1135,8 +1609,9 @@ def _other_ids(toks: list[tuple[str, str]], lows: list[str], covered: set[int]) 
     while j < len(toks):
         kind, text = toks[j]
         e, value, one = j + 1, "", False
-        if j in covered or kind not in ("word", "num") or lows[j] in ("un", "una", "a", "an"):
-            pass
+        if j in covered or kind not in ("word", "num") or lows[j] in _INDEFINITE or (
+                lows[j] in _ID_NOUNS and not _phrase_ending_at(lows, j, _CORRECTIONS)) or _not_an_id(toks, lows, j):
+            pass  # "PO 55123", "BOL 77812": the noun names the number after it
         elif any(ch.isdigit() for ch in text) and any(ch.isalpha() for ch in text):
             value = text
         elif not _number_at(lows, j, dozens=False) and _seal_like(toks, lows, j) and text != "I":
@@ -1148,13 +1623,15 @@ def _other_ids(toks: list[tuple[str, str]], lows: list[str], covered: set[int]) 
                 one = q >= 0 and len(_number_run(lows, q)[0]) == 1 and not lows[q].isdecimal()
             elif read and not any(ch.isdigit() for ch in read):
                 # letters, then a word, then digits ("ce a guion doscientos ..."): an id that does not read
-                for q in range(end, min(end + 3, len(toks))):
-                    if lows[q] not in ("un", "una", "a", "an") and _number_at(lows, q, dozens=False):
+                for q in range(end, _sentence(lows, end)[1] if end < len(lows) else end):
+                    if lows[q] not in _INDEFINITE and _number_at(lows, q, dozens=False):
                         groups, e = _number_run(lows, q)
-                        said = " ".join(lows[j:e])
-                        digits = "".join(str(v) for v, _, _ in groups)
-                        if not _is_unit(_w(lows, e)) and len(digits) >= 3:
-                            value, one = said, len(groups) == 1
+                        read2, e2, _ = _seal_value(toks, lows, q)  # "jota, te, seis, cero, dos, uno": past commas
+                        digits = re.sub(r"\D", "", read2) or "".join(str(v) for v, _, _ in groups)
+                        e = max(e, e2)
+                        if not (_is_unit(_w(lows, e)) or _w(lows, e) in _WEIGHT_UNITS or _weighed(lows, q)) and (
+                                len(digits) >= 3):
+                            value, one = " ".join(lows[j:e]), len(groups) == 1 and e2 <= groups[0][2]
                         break
         elif _number_at(lows, j, dozens=False):
             groups, e = _number_run(lows, j)
@@ -1162,6 +1639,9 @@ def _other_ids(toks: list[tuple[str, str]], lows: list[str], covered: set[int]) 
             if len(groups) > 1 and (_is_unit(after) or after in _WEIGHT_UNITS):  # "... cuatro siete 15 tarimas"
                 groups, after = groups[:-1], "|"
                 e = groups[-1][2]
+            if all(lows[g].isdecimal() for _, g, _ in groups) and [len(lows[g]) for _, g, _ in groups] in (
+                    [3, 3, 4], [3, 4]) and not _phrase_ending_at(lows, j, _CORRECTIONS):
+                groups = []  # "867 119 2054": a phone number
             if groups and not (_is_unit(after) or after in _WEIGHT_UNITS or (
                     _is_filler(after) and _is_unit(_w(lows, e + 1)))) and (
                     (len(groups) >= 3 and not any(_compound(g) for g in groups))
@@ -1169,7 +1649,7 @@ def _other_ids(toks: list[tuple[str, str]], lows: list[str], covered: set[int]) 
                 value = "".join(lows[s] if lows[s].isdecimal() else str(v) for v, s, _ in groups)
                 one = len(groups) == 1
             e = max(e, j + 1)
-        if value and not _named(lows, j) and not _WEIGHT_WORDS & set(lows[max(j - 3, 0):j]):
+        if value and not _named(lows, j) and not _weighed(lows, j):
             out.append((value, j, e, one))
         j = e
     return out
@@ -1179,7 +1659,7 @@ def _corrected_number(toks: list[tuple[str, str]], lows: list[str], j: int, cove
                       mention_ends: list[int]) -> str:
     """A number said right after a correction, outside the seal mentions, with no unit, when the seal is the last thing
     said before it: 'The seal is 203. Sorry, 230.' may correct the seal (or the count). Its digits, or ''."""
-    if j in covered or lows[j] in ("un", "una", "a", "an", "one") or not _number_at(lows, j, dozens=False):
+    if j in covered or lows[j] in _ARTICLE_WORDS or not _number_at(lows, j, dozens=False):
         return ""
     groups, e = _number_run(lows, j)
     after = _w(lows, e)
@@ -1196,12 +1676,28 @@ def _corrected_number(toks: list[tuple[str, str]], lows: list[str], j: int, cove
     return ""
 
 
+def _names(ws: list[str], p: int) -> bool:
+    """Does the id noun at p say what the number after it numbers? 'número'/'number' only after a noun ('PO number',
+    "the trailer's number") or a possessive ('mi número'): 'the number is ...' names nothing."""
+    if ws[p] not in _NUMBER_NOUNS:
+        return True
+    q = p - 2 if _w(ws, p - 1) == "s" else p - 1  # the clitic of "the trailer's number"
+    return q >= 0 and (ws[q] in _NUMBERED or ws[q] in _POSSESSIVES)  # "mi número es el 867 119 2054"
+
+
 def _named(ws: list[str], s: int) -> bool:
-    """Is the number at s said after a noun that says what it numbers ('andén cuatro', 'trailer number is 53')?"""
-    for p in range(s - 1, max(s - 4, -1), -1):
+    """Is the number at s said after a noun that says what it numbers ('andén cuatro', 'trailer number is 53', 'andén
+    No. 4')? Only lead words stand between them. 'No.' is a lead only as the abbreviation before digits: a correction
+    'no' never is ('en la caja, no trece', 'andén no cuatro')."""
+    p = s - 1
+    while p >= 0:
         if ws[p] in _ID_NOUNS:
-            return True
-        if ws[p] not in _ID_LEAD and not any(ch.isdigit() for ch in ws[p]):
+            return _names(ws, p)
+        if ws[p] == "." and _w(ws, p - 1) in _SEAL_ABBREVIATIONS and _w(ws, s).isdecimal():
+            p -= 2
+        elif ws[p] in _ID_LEAD or any(ch.isdigit() for ch in ws[p]):
+            p -= 1
+        else:
             return False
     return False
 
@@ -1212,7 +1708,13 @@ def _agrees(other: str, value: str) -> bool:
     return o == v or (o.isdecimal() and o == re.sub(r"\D", "", v))
 
 
-def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, str, set[int], set[int], str]:
+def _unread_exception(lows: list[str], j: int) -> bool:
+    """Is the word at j one of the plain non-seal uses of _UNREAD_EXCEPTIONS ('El resto está bien', 'rest area')?"""
+    return any(tuple(lows[j - k:j - k + len(p)]) == p for p in _UNREAD_EXCEPTIONS for k, w in enumerate(p)
+               if w == lows[j] and j >= k)
+
+
+def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, str, set[int], set[int], str, set[int]]:
     """Every seal mention: (seal or None, why None when one was said, token indices the mentions cover, indices where
     an id stopped reading one way, why no count may be taken: one was said inside a seal's digits)."""
     values: list[str] = []
@@ -1221,6 +1723,8 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
     covered: set[int] = set()
     stuck: set[int] = set()  # where an id stopped reading one way: a count right after it does not either
     ends: list[int] = []  # where each mention ended
+    mentions: list[int] = []  # where each mention started
+    between: set[int] = set()  # words said between a keyword and its id: "el sello creo que es ..."
     count_why = ""
     k = 0
     while k < len(toks):
@@ -1228,6 +1732,7 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
             k += 1
             continue
         before = len(values), len(whys)
+        mentions.append(k)
         if denied := _seal_denied_before(toks, lows, k):
             whys.append(denied)
         elif lows[k] in _SEAL_PLURALS:  # "los sellos son MX-48213 y MX-48214": their ids are read only to set aside
@@ -1245,6 +1750,8 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
             i = j
         covered.update(range(k, i))
         start, why = _seal_start(toks, lows, k, i)
+        between.update(range(i, start))
+        why = why or (_unclear_letter_start(toks, lows, k, start) if start >= 0 else "")
         if why and len(whys) == before[1]:
             whys.append(why)
         i = start if start >= 0 else i
@@ -1273,9 +1780,11 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
             if corrected and _id_shaped(toks, lows, nxt) and not _one_number(toks, lows, nxt):
                 i = nxt
                 continue
-            near = range(nxt, min(nxt + 3, len(toks)))  # "..., perdón, guión B", "perdón es el ab quinientos ocho"
-            if corrected and any(_seal_like(toks, lows, q) or toks[q][0] == "dash" or lows[q] in _SEAL_DASH
-                                 for q in near if toks[q][0] != "stop"):
+            near = nxt + (lows[nxt] in _ID_ARTICLES and nxt + 1 < len(toks))  # "..., perdón, guión B", "perdón es el
+            # ab quinientos ocho", "..., no, la B": the word right after the correction (past lead-ins, an article)
+            if corrected and toks[near][0] != "stop" and (
+                    (_seal_like(toks, lows, near) and toks[near][1] != "I") or toks[near][0] == "dash"
+                    or lows[near] in _SEAL_DASH):
                 whys.append(f"correction right after the seal: {' '.join(lows[i:nxt + 1])!r}")
             elif _id_shaped(toks, lows, nxt):
                 if _agrees(_seal_value(toks, lows, nxt)[0] or "?", value):  # "MX 48213, repito, MX 48213"
@@ -1290,19 +1799,19 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
         covered.update(range(start if start >= 0 else k, i))
         ends.append(i)
         k = max(i, k + 1)
-    if values and ends and (unread_at := next((j for j in range(min(ends), len(lows)) if lows[j] in _UNREAD), -1)) >= 0:
+    if values and ends and (unread_at := next((j for j in range(min(ends), len(lows)) if lows[j] in _UNREAD
+                                               and not _unread_exception(lows, j)), -1)) >= 0:
         whys.append(f"seal not read in full in transcript: {' '.join(lows[max(unread_at - 4, 0):unread_at + 1])!r}")
     for j, w in enumerate(lows):  # "la caja viene abierta", "the trailer door was opened": the seal is not intact
-        if w in _TRAILER and _w(lows, j - 1) in ("la", "el", "the") and j not in covered:
-            bad = next((q for q in range(j + 1, min(j + 4, len(lows))) if lows[q] in _SEAL_BAD | {"open"}), -1)
-            if bad >= 0 and not any(lows[q] in _NEGATIONS for q in range(j + 1, bad)):
+        if w in _TRAILER and _w(lows, j - 1) in _TRAILER_ARTICLES and j not in covered:
+            bad = next((q for q in range(j + 1, _sentence(lows, j)[1]) if (lows[q] in _SEAL_BAD or lows[q] in _OPEN)
+                        and not _negated_before(lows, q)), -1)
+            if bad >= 0:
                 whys.append(_reported(lows[j - 1:bad + 1]))
     for j, w in enumerate(lows):  # "it's not sealed", "sin sellar", "came unsealed"; "sealed" alone says nothing
         if w in _SEALING and j not in covered:
-            p = max(j - 3, 0)
-            if w == "unsealed" or any(lows[q] in _NEGATIONS or lows[q] in ("sin", "without")
-                                      or toks[q] == ("clitic", "t") for q in range(p, j)):
-                whys.append(_reported(lows[p:j + 1]))
+            if w == "unsealed" or _negated_before(lows, j):
+                whys.append(_reported(lows[max(j - 3, 0):j + 1]))
             else:
                 unread.append(w)
     others = _other_ids(toks, lows, covered)
@@ -1314,26 +1823,103 @@ def _seals(toks: list[tuple[str, str]], lows: list[str]) -> tuple[str | None, st
         if any(_agrees(value, v) for v in values) or not one:
             covered.update(range(s, e))
     if whys:
-        return None, "; ".join(whys), covered, stuck, count_why
+        return None, "; ".join(whys), covered, stuck, count_why, between
     distinct = sorted({re.sub(r"[\W_]", "", v).upper() for v in values})
     disagree = sorted({re.sub(r"[\W_]", "", o).upper() for o, _, _, _ in others
                        if not any(_agrees(o, v) for v in values)})
     if values and (len(distinct) > 1 or disagree):
-        return None, f"seals disagree in transcript: {sorted(set(distinct + disagree))}", covered, stuck, count_why
+        why = f"seals disagree in transcript: {sorted(set(distinct + disagree))}"
+        return None, why, covered, stuck, count_why, between
+    if values and (back := next((j for j in range(mentions[0], len(lows)) if _retraction_at(lows, j)), -1)) >= 0:
+        why = f"seal taken back in transcript: {_said(lows[back:back + 8])!r}"  # "..., ese era el de ayer"
+        return None, why, covered, stuck, count_why, between
     if not values and unread:  # never silent: a seal was said and no id came out of it
-        return None, "seal said but no id read: " + ", ".join(repr(u) for u in unread), covered, stuck, count_why
+        why = "seal said but no id read: " + ", ".join(repr(u) for u in unread)
+        return None, why, covered, stuck, count_why, between
     if not values and others:
         said = ", ".join(repr(o) for o, _, _, _ in others)
-        return None, f"id said with no seal keyword: {said}", covered, stuck, count_why
-    return (values[0] if values else None), "", covered, stuck, count_why
+        return None, f"id said with no seal keyword: {said}", covered, stuck, count_why, between
+    return (values[0] if values else None), "", covered, stuck, count_why, between
 
 
 # --- count -------------------------------------------------------------------------------------
 
 
-def _count(ws: list[str], stuck: frozenset[int] | set[int] = frozenset()) -> tuple[int | None, str]:
+def _negated_value(ws: list[str], s: int, e: int) -> list[str]:
+    """The words that negate the number at ws[s:e], or []: a negation earlier in its clause with other words between,
+    not about the cargo ('no, no son 18', 'no es 26'; 'no, trece' and 'no trece' are corrections), or one right after it
+    that ends the clause ('las 34 no, ...', 'Las 11 skids no.')."""
+    words, k = False, s - 1
+    while k >= 0 and ws[k] not in (",", ".", "-", "|"):
+        n = 2 if ws[k] == "t" and _w(ws, k - 1) in _NEGATED_CONTRACTIONS else int(ws[k] in _NEGATIONS)
+        if n and words and not _about_cargo(ws, k + 1):
+            return ws[k - (n == 2):e]
+        f = _phrase_ending_at(ws, k + 1, _FILLER_PHRASES) or int(ws[k] in _SPEECH_FILLERS)
+        words, k = words or not f, k - max(f, 1)
+    n = 2 if _w(ws, e) in _NEGATED_CONTRACTIONS and _w(ws, e + 1) == "t" else int(_w(ws, e) in _NEGATIONS)
+    if n and _w(ws, e + n) in ("", ".", ","):
+        return ws[s:e + n]
+    q = e
+    while _w(ws, q) in _NEGATION_GAP or _w(ws, q) == "s":
+        q += 1
+    return ws[s:q + 1] if _w(ws, q) in _WRONG else []  # "the 350 is wrong"
+
+
+def _phone_run(ws: list[str], s: int) -> range:
+    """The indices of a phone number written in groups starting at s ('818 772 4410', '555 0142'), unless a
+    correction stands right before it; else an empty range."""
+    sizes = []
+    while _w(ws, s + len(sizes)).isdecimal() and len(sizes) < 3:
+        sizes.append(len(ws[s + len(sizes)]))
+    for want in ([3, 3, 4], [3, 4]):
+        if sizes[:len(want)] == want and not _w(ws, s + len(want)).isdecimal() and not _phrase_ending_at(
+                ws, s, _CORRECTIONS):
+            return range(s, s + len(want))
+    return range(0)
+
+
+def _after_seal(ws: list[str], n: int) -> bool:
+    """Is the word at n said of a seal mention right before it, past only _NEGATION_GAP words ('| is missing')?"""
+    p = n - 1
+    while p >= 0 and ws[p] in _NEGATION_GAP:
+        p -= 1
+    return p >= 0 and ws[p] == "|"
+
+
+def _weighed(ws: list[str], s: int) -> bool:
+    """Is the number at s a weight said after a weight word, past only the words of _WEIGHT_GAP ('pesa cuatro mil',
+    'peso bruto 4800', 'weighs about 4,800')?"""
+    p = s - 1
+    while p >= 0 and ws[p] in _WEIGHT_GAP:
+        p -= 1
+    return p >= 0 and ws[p] in _WEIGHT_WORDS
+
+
+def _pronoun(ws: list[str], s: int, e: int) -> bool:
+    """'one' as a pronoun: 'a good one', 'the last one', 'this one' (only after a word of _PRONOUN_BEFORE)."""
+    return e == s + 1 and ws[s] == "one" and _w(ws, s - 1) in _PRONOUN_BEFORE
+
+
+def _adverb(w: str) -> bool:
+    """'honestly', 'realmente', 'tops': after a bare number it does not say what the number counts."""
+    return (len(w) > 4 and w.endswith("ly")) or (len(w) > 6 and w.endswith("mente")) or w in _ADVERBS
+
+
+def _article_noun(ws: list[str], e: int) -> bool:
+    """Is the word at e a noun an article stands before ('un viaje', 'una pregunta'), and not a count noun, a count
+    change, a number or an adverb?"""
+    w = _w(ws, e)
+    return (w == "|" or w in _ID_NOUNS or (_is_filler(w) and len(w) > 2 and w not in _SPEECH_FILLERS)) and not (
+        _unit(ws, e) or w in _COUNT_CHANGE or w in _MORE or w in _NUMBER_WORDS or _adverb(w)
+        or _phrase_at(ws, e, _COUNT_AFTER))
+
+
+
+def _count(ws: list[str], stuck: frozenset[int] | set[int] = frozenset(),
+           between: frozenset[int] | set[int] = frozenset()) -> tuple[int | None, str]:
     """The one count said in ws (seal mentions masked as '|'). stuck: where a seal id stopped reading one way; a count
-    said right after one ("... one thousand five hundred eighty one hundred and nine pallets") does not either."""
+    said right after one ("... one thousand five hundred eighty one hundred and nine pallets") does not either.
+    between: words said between a seal keyword and its id ('el sello creo que es ...'), which are that seal's."""
     phrases: list[tuple[int, int, int | None]] = []  # (start, end, value)
     i = 0
     while i < len(ws):
@@ -1348,7 +1934,7 @@ def _count(ws: list[str], stuck: frozenset[int] | set[int] = frozenset()) -> tup
 
     def correction_before(s: int) -> str:  # "doce, no, eh, trece", "no a ver trece", "sorry, uh, it's thirteen"
         p = s
-        for _ in range(6):
+        while p > 0:
             n = _phrase_ending_at(ws, p, _CORRECTIONS)
             if n:
                 return " ".join(ws[p - n:p])
@@ -1368,9 +1954,9 @@ def _count(ws: list[str], stuck: frozenset[int] | set[int] = frozenset()) -> tup
             # "21 cajas ... no veintidós mil ochocientos kilos": a corrected count (22) and 1800 kg, or 22800 kg?
             head = max((x for x in (_es_below_1000(ws, s), _en_below_1000(ws, s)) if x), key=lambda x: x[1],
                        default=None)
-            if head and head[1] < e and _w(ws, head[1]) in ("mil", "thousand"):
+            if head and head[1] < e and _w(ws, head[1]) in _THOUSAND:
                 other.setdefault(head[0], f"self-correction: {marker!r}")
-        if _w(ws, s - 1) in _ID_NOUNS or _w(ws, e) in _WEIGHT_UNITS:
+        if (_w(ws, s - 1) in _ID_NOUNS and _names(ws, s - 1)) or _w(ws, e) in _WEIGHT_UNITS:
             continue
         if _unit(ws, e):
             u = e + 1
@@ -1386,6 +1972,9 @@ def _count(ws: list[str], stuck: frozenset[int] | set[int] = frozenset()) -> tup
         return None, "no count found in transcript"
 
     named_ends: set[int] = set()
+    negated: list[list[str]] = []  # a value said again with a negation
+    time_ends: set[int] = set()
+    phones = {q for s, _, _ in bare for q in _phone_run(ws, s)}
     for s, e, v in bare:
         # Any number said with no unit, anywhere in the note, is a value for the count unless it numbers or weighs
         # something else ("andén cuatro", "factura nueve nueve ocho", "trailer number is 53", "a las tres", "pesa
@@ -1394,28 +1983,35 @@ def _count(ws: list[str], stuck: frozenset[int] | set[int] = frozenset()) -> tup
         if _named(ws, s) or s in named_ends:
             named_ends.add(e)
             continue
-        if _w(ws, s - 1) in _NOT_COUNT_BEFORE or _WEIGHT_WORDS & set(ws[max(s - 3, 0):s]):
-            continue
-        if _w(ws, e) in _MORE and not _phrase_at(ws, e, _APPROX_AFTER) and not (
-                _is_filler(_w(ws, e + 1)) and len(_w(ws, e + 1)) > 2 and _w(ws, e + 1) not in _ADDED | _SEAL_BAD):
-            # "y una más": 13, or 1? ("one more thing" says nothing of the count)
-            return None, f"unclear count in transcript: {' '.join(ws[s:e + 1])!r}"
         nxt = _w(ws, e)
-        # "horas", "saludo"; "|" is a seal mention: "y un sello MX-48213" counts the seal, not the load
         article = e == s + 1 and ws[s] in _ARTICLES
-        noun = (not _phrase_at(ws, e, _COUNT_AFTER) and _is_filler(nxt) and len(nxt) > 2 and nxt not in _SPEECH_FILLERS
-                ) or (nxt == "|" and article)
-        if article and nxt == "total":
-            continue  # "un total de doce tarimas"
-        # A correction before a number makes it compete whatever follows it ("no, trece en total", "perdón, trece
-        # completas"). Accepted cost: "perdón, tres horas tarde" competes too (count None, the detail says why). Not
-        # an article before a noun: "bueno, un saludo" ("un"/"una"/"one" counts there only before a count noun).
-        if marker := correction_before(s):
-            if not (noun and article):
-                other.setdefault(v, f"self-correction: {marker!r}")
+        if _weighed(ws, s) or (article and nxt == "total") or _pronoun(ws, s, e) or s in phones or (
+                ws[s] == "once" and _inside(ws, s, _ONCE)):
+            continue  # "pesa cuatro mil", "un total de doce tarimas", "have a good one", "818 772 4410", "for once"
+        if not article and (neg := _negated_value(ws, s, e)):
+            negated.append(neg)  # "no, no son 18", "las 34 no", "the 350 is wrong": said again, negated
+        if _w(ws, s - 1) in _NOT_COUNT_BEFORE or _phrase_ending_at(ws, s, _TIME_BEFORE) or s in time_ends or (
+                _w(ws, s - 1) in _AND and s - 1 in time_ends):
+            time_ends.add(e)  # "a las ocho y diez", "a las seis cuarenta y cinco", "a quarter to six"
             continue
-        if noun:
-            continue  # "dos horas esperando", "two hours late": it counts something else
+        if (nxt in _MORE and not _phrase_at(ws, e, _APPROX_AFTER)) or nxt in _COUNT_CHANGE:
+            # "y una más": 13, or 1? "one short", "una faltante", "dos missing": 12, or 11? Always a count.
+            return None, f"unclear count in transcript: {' '.join(ws[s:e + 1])!r}"
+        marker = correction_before(s)
+        if article:
+            # "Fue un viaje largo", "bueno, un saludo": an article before a noun that is neither counted nor a count
+            # change. After a correction only the nouns of _ARTICLE_NOUNS: "perdón, un par", "sorry, one short"
+            # compete (ORDER Nube-10 item 1b). "|" is a seal mention: "y un sello MX-48213" counts the seal.
+            if (nxt in _ARTICLE_NOUNS or nxt == "|") if marker else _article_noun(ws, e):
+                continue
+        # A correction before a number makes it compete whatever follows it ("no, trece en total", "perdón, trece
+        # completas"). Accepted cost: "perdón, tres horas tarde" competes too (count None, the detail says why).
+        if marker:
+            other.setdefault(v, f"self-correction: {marker!r}")
+            continue
+        if not _phrase_at(ws, e, _COUNT_AFTER) and _is_filler(nxt) and len(nxt) > 2 and nxt not in _SPEECH_FILLERS and (
+                not _adverb(nxt)):
+            continue  # "dos horas esperando", "two hours late": it counts something else ("thirteen honestly" does not)
         q = e
         while _w(ws, q) in (",", ".", "-"):
             q += 1
@@ -1429,54 +2025,67 @@ def _count(ws: list[str], stuck: frozenset[int] | set[int] = frozenset()) -> tup
 
     for s, u, v in counts:
         said = " ".join(ws[s:u])
-        a = s
-        while a > 0 and s - a < 6 and ws[a - 1] not in (".", "|"):
-            a -= 1
-        end = next((n for n in range(u, min(u + 7, len(ws))) if ws[n] in (".", "|")), min(u + 7, len(ws)))
-        before = [n for n in range(a, s) if _is_source(ws, n) and ("," not in ws[n:s] or _SCOPING & set(ws[a:n + 1]))]
-        if before or any(_is_source(ws, n, verbs=False) for n in range(u, end)):
-            # "según la factura son doce tarimas", "the bol says fourteen ...", "doce tarimas, eso dice el papel"
-            return None, f"count said from the paperwork or someone else: {' '.join(ws[a:end])!r}"
+        a, b = _sentence(ws, s)
+        src = next((n for n in range(a, s) if _source_at(ws, n, a, b)), -1)
+        affirmed = False
+        for n in range(u, b):
+            affirmed = affirmed or ws[n] in _SEAL_MATCH  # "twelve pallets, matches the bill"
+            if src < 0 and not affirmed and _source_at(ws, n, a, b, after=True):
+                src = n
+        if src >= 0:
+            # "según la factura son doce tarimas", "the bol says fourteen ...", "doce tarimas, eso dice el papel",
+            # "En la planta me contaron doce tarimas"
+            return None, f"count said from the paperwork or someone else: {_said(ws[min(src, s):max(src + 1, u)])!r}"
         if any(_phrase_at(ws, n, _COUNT_DOUBT) for n in range(len(ws))):  # "no sé, no las conté"
             return None, f"count not checked in transcript: {said!r}"
-        thousands = next((n for n in range(s, u) if ws[n] in ("mil", "thousand")), -1)
-        if thousands >= 0 and (_WEIGHT_WORDS & set(ws[max(s - 3, 0):s]) or (
+        thousands = next((n for n in range(s, u) if ws[n] in _THOUSAND), -1)
+        if thousands >= 0 and (_WEIGHT_WORDS & set(ws[a:s]) or (
                 v is not None and v >= 10000 and _number_at(ws, thousands + 1, dozens=False))):
             # "pesa veinte mil doce tarimas", "forty thousand twelve pallets": a weight and a count, or one number?
-            return None, f"count runs into a weight: {' '.join(ws[max(s - 3, 0):u])!r}"
-        if any(p < s <= p + 4 and all(w in _NUMBER_WORDS or w in ("y", "and") for w in ws[p:s]) for p in stuck):
+            return None, f"count runs into a weight: {_said(ws[a:u])!r}"
+        if any(p < s and all(w in _NUMBER_WORDS or w in _AND for w in ws[p:s]) for p in stuck):
             return None, f"count runs into the seal's digits: {' '.join(ws[min(stuck, key=lambda p: abs(s - p)):u])!r}"
         q = u + 1 if _w(ws, u) == "," else u
         if _phrase_ending_at(ws, s, _APPROX_BEFORE) or _phrase_at(ws, q, _APPROX_AFTER):
             return None, f"approximate count in transcript: {said!r}"
-        k = s
-        while k > 0 and s - k < 5 and _w(ws, k - 1) not in (".", "|", "-"):  # a hedge up to 5 words before it
-            if n := _phrase_ending_at(ws, k, _HEDGES):
-                return None, f"hedged count in transcript: {' '.join(ws[k - n:u])!r}"
-            k -= 1
-        if n := _phrase_at(ws, q, _HEDGES_AFTER):  # "doce tarimas, creo", and "... boxes i think hello ..." too
-            return None, f"hedged count in transcript: {' '.join(ws[s:q + n])!r}"
-        for k in range(s - 1, max(s - 5, -1), -1):
-            if ws[k] in (".", ",", "-", "|"):
+        # a hedge anywhere in its sentence: "Creo que lo que traigo son doce tarimas", "..., creo"
+        h, he = _hedge_in(ws, a, b, between)
+        if h >= 0:
+            return None, f"hedged count in transcript: {_said(ws[h:u] if h < s else ws[s:he])!r}"
+        for k in range(s - 1, a - 1, -1):  # a negation in its clause before it: "no traigo doce tarimas"
+            if ws[k] in (",", "-", "|"):
                 break
-            if ws[k] in _NEGATIONS or (ws[k] == "t" and _w(ws, k - 1) in _NEGATED_CONTRACTIONS):
-                return None, f"negated count in transcript: {' '.join(ws[k - (ws[k] == 't'):u])!r}"
-        # said after it, more than the count: "doce tarimas más una suelta", "twelve pallets and a box", "y media"
-        end = next((n for n in range(u, min(u + 6, len(ws))) if ws[n] in (".", "|")), min(u + 6, len(ws)))
-        for n in range(u, end):
+            n = 2 if ws[k] == "t" and _w(ws, k - 1) in _NEGATED_CONTRACTIONS else int(ws[k] in _NEGATIONS)
+            if n and not _about_cargo(ws, k + 1):
+                return None, f"negated count in transcript: {_said(ws[k - (n == 2):u])!r}"
+        n = 2 if _w(ws, u) in _NEGATED_CONTRACTIONS and _w(ws, u + 1) == "t" else int(_w(ws, u) in _NEGATIONS)
+        if n and _w(ws, u + n) in ("", ".", ","):
+            negated.append(ws[s:u + n])  # "Las 11 skids no, I miscounted"
+        q = u
+        while _w(ws, q) in _NEGATION_GAP or _w(ws, q) == "s":
+            q += 1
+        if _w(ws, q) in _WRONG:
+            negated.append(ws[s:q + 1])  # "twelve pallets is wrong"
+        # said after it in its sentence, more than the count: "doce tarimas más una suelta", "and a box", "y media"
+        for n in range(u, b):
             if _phrase_at(ws, n, _CORRECTIONS) or _phrase_at(ws, n, _APPROX_AFTER):
                 break  # "doce tarimas, más bien trece", "más o menos": said for what they are
             seal_next = ws[n] in _SEAL_BAD and (_w(ws, n + 1) == "|" or (
-                _w(ws, n + 1) in ("el", "la", "the", "a", "un", "una") and _w(ws, n + 2) == "|"))
-            if (ws[n] in _ADDED and _w(ws, n - 1) not in _NEGATIONS and not seal_next) or (
-                    ws[n] in ("a", "an", "un", "una") and (
+                _w(ws, n + 1) in _ID_ARTICLES | _EN_INDEFINITE and _w(ws, n + 2) == "|") or _after_seal(ws, n))
+            if (ws[n] in _ADDED and not _negated_before(ws, n) and not seal_next) or (
+                    ws[n] in _INDEFINITE and (
                     _unit(ws, n + 1) or (_is_filler(_w(ws, n + 1)) and _unit(ws, n + 2)))):
-                # not "no falta nada", nor "falta el sello": that is the seal's
-                return None, f"more than the count said in transcript: {' '.join(ws[s:n + 1])!r}"
+                # not "no falta nada", "nothing missing", nor "falta el sello": that is the seal's
+                return None, f"more than the count said in transcript: {_said(ws[s:n + 1])!r}"
         if v is None:
             return None, f"unclear count in transcript: {said!r}"
 
     values = {v for _, _, v in counts if v is not None} | set(other)
+    taken_back = next((r for r in range(min(s for s, _, _ in counts), len(ws)) if _retraction_at(ws, r)), -1)
+    if len(values) == 1 and negated:  # one value, said again negated: "Son 18 tarimas, no, no son 18"
+        return None, f"negated count in transcript: {_said(negated[0])!r}"
+    if len(values) == 1 and taken_back >= 0:  # "Doce tarimas. Mentira.", "..., no, no son 18, me equivoqué"
+        return None, f"count taken back in transcript: {_said(ws[taken_back:taken_back + 8])!r}"
     if len(values) == 1:
         return values.pop(), ""
     notes = sorted({n for n in other.values() if n})
@@ -1487,8 +2096,8 @@ def _count(ws: list[str], stuck: frozenset[int] | set[int] = frozenset()) -> tup
 def _parse_voice(transcript: str) -> tuple[int | None, str, str | None, str]:
     toks = _tokens(transcript)
     lows = [_LOW_PUNCT.get(k, t.lower()) for k, t in toks]
-    seal, seal_why, covered, stuck, inside = _seals(toks, lows)
-    count, why = _count(["|" if k in covered else w for k, w in enumerate(lows)], stuck)
+    seal, seal_why, covered, stuck, inside, between = _seals(toks, lows)
+    count, why = _count(["|" if k in covered else w for k, w in enumerate(lows)], stuck, between)
     if inside:  # "sello cuatro ocho dos uno tres dos tarimas": 2 pallets, or 482132 and no count?
         count, why = None, f"count said inside the seal's digits: {inside}"
     return count, why, seal, seal_why

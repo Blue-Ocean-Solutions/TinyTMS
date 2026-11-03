@@ -18,9 +18,9 @@ from tinytms import adapters
 SRC = Path(adapters.__file__).read_text(encoding="utf-8")
 TREE = ast.parse(SRC)
 _VOICE = (SRC.index("# --- voice"), SRC.index("# --- fixtures"))
-# Module-level names in the voice section that are not word lists: compiled regexes, and _DIGIT_OF (built only from
-# the number tables, which have their own cases).
-NOT_LISTS = frozenset({"_UNIT", "_TOKEN", "_THOUSANDS", "_GROUPED", "_DIGIT_OF"})
+# Module-level names in the voice section that are not word lists: compiled regexes (_PHONE and _INTERSTATE match
+# digit shapes, not words), and _DIGIT_OF (built only from the number tables, which have their own cases).
+NOT_LISTS = frozenset({"_UNIT", "_TOKEN", "_THOUSANDS", "_GROUPED", "_DIGIT_OF", "_PHONE", "_INTERSTATE"})
 
 
 def _assign(name: str) -> ast.Assign:

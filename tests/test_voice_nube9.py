@@ -50,8 +50,7 @@ READ_PAST = [
     ("Twelve pallets, seal is fine, trailer number is 53.",
      12, None, f"{WORDS}: 'seal is fine , trailer number is 53'"),
     ("The seal on trailer number four is intact.", None, None,
-     f"no count found in transcript; {WORDS}: 'seal on trailer number four'; "
-     "seal digits run into the next words: 'four is'"),
+     f"no count found in transcript; {WORDS}: 'seal on trailer number four'"),  # ORDER Nube-10: "intact" ends it
     ("Son doce tarimas. El sello lo vi en la uno.", 12, None, f"{WORDS}: 'sello lo vi en la uno'"),
     # ORDER Nube-8's fix-7 examples: the house rule outranks that order
     ("Traigo doce tarimas. El sello de la caja es MX-48213.", 12, None, f"{WORDS}: 'sello de la caja es mx-48213'"),
@@ -90,7 +89,7 @@ def test_1_lead_ins_still_read(said):
 HEDGED_SEALS = [
     ("Traigo doce tarimas. El sello creo que es MX-48213.",
      12, None, "hedged seal in transcript: 'sello creo que es mx-48213'"),
-    ("Twelve pallets. I think the seal is MX-48213.", 12, None, "hedged seal in transcript: 'i think the seal'"),
+    ("Twelve pallets. I think the seal is MX-48213.", 12, None, "hedged seal in transcript: 'think the seal'"),
     ("Traigo doce tarimas. Sello, creo, MX-48213.", 12, None, "hedged seal in transcript: 'sello , creo , mx-48213'"),
     ("Traigo doce tarimas. El sello es MX-48213, creo.",
      12, None, "hedged seal in transcript: 'sello es mx-48213 , creo'"),
@@ -211,7 +210,8 @@ def test_6_a_good_note_accepts(text):
 @pytest.mark.parametrize("denial,detail", [
     ("El sello no coincide.", "seal reported broken, missing or not matching in transcript: 'sello no coincide'"),
     ("The seal is broken.", "seal reported broken, missing or not matching in transcript: 'seal is broken'"),
-    ("Falta el sello.", "seal reported broken, missing or not matching in transcript: 'falta el sello'"),
+    ("Falta el sello.", "seal reported broken, missing or not matching in transcript: 'sello es mx-48213 . falta'; "
+                        "seal reported broken, missing or not matching in transcript: 'falta el sello'"),
     ("The seal doesn't match.",
      "seal reported broken, missing or not matching in transcript: 'seal doesn t match'"),
 ])

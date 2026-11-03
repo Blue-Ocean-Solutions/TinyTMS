@@ -248,12 +248,27 @@ def _low_seal_reads(text: str, said: str) -> bool:
     return not nxt or not (nxt[0] in NUMBER_START or nxt[0].replace(",", "").isdecimal())
 
 
+# Words that are both a lead-in or an everyday word and a Spanish letter name (ORDER Nube-10 item 6): as the first
+# letter of a spelled seal ("ese eme equis ...", "te equis ...", "a be ..."), or right before a spelled letter name
+# that starts it ("El sello es eme equis ..."), the seal does not read one way.
+LETTER_WORDS = {"ese", "a", "te", "de", "el", "es"}
+
+
+def _ambiguous_letters(text: str, said: str) -> bool:
+    words, first = re.sub(r"[.,;:!?…]", " ", text.lower()).split(), said.lower().split()[0]
+    k = next((i for i in range(len(words)) if words[i:i + len(said.split())] == said.lower().split()), -1)
+    before = words[k - 1] if k > 0 else ""
+    return first in ES_LETTER.values() and (first in LETTER_WORDS or before in LETTER_WORDS)
+
+
 def notes(seed: int = SEED, n_good: int = 1500, n_other: int = 1700) -> list[Note]:
     """The punctuated notes; forms() adds the lowercase ones."""
     rng = random.Random(seed)
     out: list[Note] = []
 
     def add(kind, text, count, seal, seal_said, counts, seals, good=False):
+        if spoken and seal and _ambiguous_letters(text, said):  # ORDER Nube-10 item 6: no one seal may be taken
+            kind, seal, good = f"{kind}_letters", None, False
         out.append(Note(kind, text, count, seal, seal_said, tuple(counts), tuple(seals), good, False,
                         said if spoken and seal else "", number_of(cphrase)))
 
