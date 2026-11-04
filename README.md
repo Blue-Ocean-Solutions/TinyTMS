@@ -209,7 +209,8 @@ back to "MX", so it HOLDs on `SEAL_MISMATCH`). Every API call is also logged to 
 `TINYTMS_LANE_CAPS` (e.g. `sam-3.1=20,muse-spark-1.3=25`) each record carries its lane and the client refuses a call
 once that lane's own records reach its cap. Keys: `a100b16dfd814a49` is the day-2 API lane,
 `37f9717d0627af51` the day-3 lane (Spanish voice note, explanations, explained check-ins), `50be0cedb34ab0b9` the
-measuring seat on the Mac.
+measuring seat on the Mac, and `52182b2297d8556e` the video seat of 2026-11-04 (the clean copy that ran the
+submission video's real runs).
 Of the 39 calls in the ledger `receipts/llamadas.json`, 32 have a published receipt. The other 7 are the first
 `scripts/live_eval.py` run (2026-10-28, 15:23–15:24 UTC): they were signed on the Mac, but those receipts carry local
 machine paths, so they are not published.
