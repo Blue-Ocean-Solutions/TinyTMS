@@ -70,6 +70,14 @@ Verify a receipt. One screen, signature and signer checked first (exit `1` if ei
 python scripts/receipt_show.py receipts/<file>.json
 ```
 
+See what a SAM witness saw: its boxes drawn on its own photo, under a caption naming the receipt. Nothing is drawn
+(exit `1`) unless the signature verifies, the signer is known, the photo's sha256 is the one the receipt signed, and
+the boxes match the receipt's own count and image size:
+
+```bash
+python scripts/receipt_boxes.py receipts/<live-sam-file>.json --out <frame>.png
+```
+
 Or in Python, pinning origin to the seats in `keys/known_signers.txt` (`True` for every committed receipt, `False`
 for the same body signed by any other key):
 

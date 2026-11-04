@@ -98,6 +98,7 @@ python -m tinytms.cli checkin --mode api --explain api --lang es --load evals/pu
 python scripts/pull_the_plug.py --load evals/public/boxes-moving.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/silencio_16k.wav   # key + Mac with Glimmer: beat 4 variant A, two receipts
 python -m tinytms.cli checkin --mode local --load evals/public/boxes-moving.jpg --doc evals/doc/carta_sintetica.png --voice evals/voice/silencio_16k.wav   # no key, Mac with Glimmer: beat 4 variant B
 python scripts/receipt_show.py receipts/<file>.json                                  # no key: any receipt on one screen, signature first
+python scripts/receipt_boxes.py receipts/<live-sam-file>.json --out <frame>.png       # no key: 0:30 and 0:38, a SAM receipt's boxes on its own photo
 python -m tinytms.web --port 8765 --receipts-dir receipts                              # the one-page web, if a beat uses it
 python scripts/maqueta.py --dry-run count_mismatch                                     # no key: rehearse the dock-scene command
 ```
