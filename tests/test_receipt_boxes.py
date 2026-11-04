@@ -176,6 +176,43 @@ def test_control_the_same_photo_without_the_tag_draws(tmp_path):
     assert out.exists()
 
 
+def _sam_receipt_sized(tmp_path: Path, photo: bytes, reported: tuple[int, int], box: list[float]) -> tuple[Path, Path, Path]:
+    """A one-box SAM receipt for exactly these bytes, reporting the image size SAM answered in."""
+    import hashlib
+
+    p = tmp_path / "photo.jpg"
+    p.write_bytes(photo)
+    sha = hashlib.sha256(photo).hexdigest()
+    body = {"kind": "live-witness", "witness": "sam", "model": "sam-3.1", "concept": "box",
+            "input": {"path": "evals/own/photo.jpg", "sha256": sha},
+            "result": {"status": "OK", "count": 1, "image_w": reported[0], "image_h": reported[1],
+                       "source_sha256": sha, "boxes": [box]}}
+    receipt, signers = _signed(tmp_path, body)
+    return p, receipt, signers
+
+
+def test_boxes_in_a_frame_sam_scaled_down_are_drawn_in_that_frame(tmp_path, capsys):
+    # SAM answered for the 60x40 photo in a 30x20 frame (same shape, half size): the boxes are SAM's numbers, drawn on
+    # the photo resized to that frame. No coordinate is rescaled.
+    photo, receipt, signers = _sam_receipt_sized(tmp_path, _jpeg(None), (30, 20), [2.0, 2.0, 12.0, 12.0, 0.9])
+    out = tmp_path / "frame.png"
+    assert _script().main([str(receipt), "--known-signers", str(signers), "--image", str(photo),
+                           "--out", str(out)]) == 0
+    assert "30x20" in capsys.readouterr().out
+    frame = cv2.imread(str(out))
+    band = frame.shape[0] - 20
+    assert frame.shape[1] == 30 and band > 0
+    assert tuple(int(c) for c in frame[band + 7, 2]) == _script().BOX_BGR  # left edge of the box, in SAM's frame
+
+
+def test_a_frame_of_another_shape_draws_nothing(tmp_path, capsys):
+    photo, receipt, signers = _sam_receipt_sized(tmp_path, _jpeg(None), (30, 30), [2.0, 2.0, 12.0, 12.0, 0.9])
+    out = tmp_path / "frame.png"
+    assert _script().main([str(receipt), "--known-signers", str(signers), "--image", str(photo),
+                           "--out", str(out)]) == 1
+    assert "size" in capsys.readouterr().out and not out.exists()
+
+
 def test_out_must_be_a_png(tmp_path):
     with pytest.raises(SystemExit) as e:
         _script().main([str(CARDBOARD), "--out", str(tmp_path / "frame.jpg")])

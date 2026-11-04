@@ -96,8 +96,8 @@ def photo_path(receipt: dict[str, Any], image: str | None) -> Path:
     return p
 
 
-def check_photo(receipt: dict[str, Any], data: bytes) -> np.ndarray:
-    """The photo decoded from `data`, once its sha256 and its size are the ones the receipt holds."""
+def check_photo(receipt: dict[str, Any], data: bytes) -> tuple[np.ndarray, str]:
+    """The photo decoded from `data` (and a note), once its sha256 and its size are the ones the receipt holds."""
     inp = receipt.get("input")
     want = str(inp.get("sha256", "") if isinstance(inp, dict) else "").lower()
     got = hashlib.sha256(data).hexdigest()
@@ -115,9 +115,15 @@ def check_photo(receipt: dict[str, Any], data: bytes) -> np.ndarray:
         raise Refused("the photo carries an EXIF rotation; strip its metadata and take a new receipt")
     h, w = img.shape[:2]
     rw, rh = receipt["result"].get("image_w"), receipt["result"].get("image_h")
-    if (rw, rh) != (None, None) and (w, h) != (rw, rh):  # none only when there is no box to place
-        raise Refused(f"photo size {w}x{h} is not the {rw}x{rh} the witness reported")
-    return img
+    if (rw, rh) == (None, None) or (w, h) == (rw, rh):  # none only when there is no box to place
+        return img, ""
+    # SAM can answer in a smaller frame of the same shape (it scales the photo down). Its boxes are numbers in THAT
+    # frame, so they are drawn there, on the photo resized to it; no coordinate is rescaled. Another shape would mean
+    # a crop or a pad, and is refused.
+    if _number(rw) and _number(rh) and 0 < rw <= w and 0 < rh <= h and abs(rw / w - rh / h) * max(w, h) <= 1:
+        note = f"drawn in the {rw:g}x{rh:g} frame SAM answered in (the photo is {w}x{h}, same shape)"
+        return cv2.resize(img, (int(rw), int(rh)), interpolation=cv2.INTER_AREA), note
+    raise Refused(f"photo size {w}x{h} is not the {rw}x{rh} the witness reported, nor that shape scaled down")
 
 
 def frame(img: np.ndarray, boxes: list[Box], caption: str) -> np.ndarray:
@@ -180,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
         except OSError as e:
             print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
             return 3
-        img = check_photo(receipt, data)
+        img, note = check_photo(receipt, data)
     except Refused as e:
         print(f"refused, nothing drawn: {e}")
         return 1
@@ -198,6 +204,8 @@ def main(argv: list[str] | None = None) -> int:
     os.replace(partial, out)  # a frame is whole or absent, never half-written
     shown = args.image or receipt["input"]["path"]
     print(f"image  {shown}  sha256 {hashlib.sha256(data).hexdigest()[:12]} = the receipt's")
+    if note:
+        print(note)
     print(f"drew {len(boxes)} box{'' if len(boxes) == 1 else 'es'} ({model}, {concept!r}) -> {args.out}")
     return 0
 
