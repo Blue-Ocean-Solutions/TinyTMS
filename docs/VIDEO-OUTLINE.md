@@ -83,7 +83,7 @@ filled from the receipts that run writes, each with its link in the same row.
 | 2:42 | Text card, no voice, over the call ledger scrolling: every Meta API call is in the ledger · 39 calls on 2026-10-28 · all HTTP 200 · under per-model caps. | — (on-screen text only) | 0 | [`receipts/llamadas.json`](../receipts/llamadas.json) |
 | 2:48 | Two columns. REAL: the Meta API answers, the local Glimmer runs. SYNTHETIC: the Carta de Porte, the voice note's TTS, the FIXTURE cases. | "What is real: the model answers and the local run. What is synthetic is labelled synthetic." | 16 | [`receipts/live-spark-20261028T153211Z.json`](../receipts/live-spark-20261028T153211Z.json), [`receipts/local-vlm-20261028T152737Z.json`](../receipts/local-vlm-20261028T152737Z.json) |
 | 2:53 | Next: real boxes · a driver's own voice · local speech-to-text. `[recibo nuevo]` | "Next: real boxes, a driver's own voice, and a local ear so the Mac can accept a load on its own." | 21 | — |
-| 2:58 | End card: **tinyTMS.IO** · Apache-2.0 · github.com/Blue-Ocean-Solutions/TinyTMS | — | 0 | — |
+| 2:58 | End card: **tinyTMS.IO** · Apache-2.0 · github.com/Blue-Ocean-Solutions/TinyTMS · Built during the hackathon (repository created 2026-10-28) · Photo: brownpau, CC BY 2.0 · Built with Claude Code sessions (seat names in the commits) | — | 0 | — |
 
 **Total spoken: 369 words** (Beat 1: 40 · Beat 2: 102 · Beat 3: 91 · Beat 4, variant A: 72 · Beat 5: 64; 2:27 and
 2:42 are on-screen text). With variant B instead of A: 362.
