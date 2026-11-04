@@ -110,11 +110,18 @@ has the local, auto, explain and web commands.
 
 ## Evidence for reviewers
 
-- `receipts/`: the published signed runs (32 of the 39 API calls in `receipts/llamadas.json` have one; README, "What is
-  measured", says why the other 7 do not); each one passes `python scripts/receipt_show.py`. Three signer
-  keys, by `public_key` prefix: `50be0ced` (the measuring seat: the two local Glimmer receipts), `a100b16d` (the
-  day-2 API lane) and `37f9717d` (the day-3 API lane: the Spanish voice, explanation and explained check-in receipts).
+- `receipts/`: the published signed runs. 51 of the 60 API calls in `receipts/llamadas.json` have one, and README,
+  "What is measured", says why the other 9 do not. Each receipt passes `python scripts/receipt_show.py`. Four signer
+  keys, by `public_key` prefix:
+  - `50be0ced`: the measuring seat (the two local Glimmer receipts of 2026-10-28);
+  - `a100b16d`: the day-2 API lane;
+  - `37f9717d`: the day-3 API lane (the Spanish voice, explanation and explained check-in receipts);
+  - `52182b22`: the video seat of 2026-11-04 (the video's check-ins, its English explanation, the pull-the-plug runs
+    and the four SAM answers on the author's photo).
+
   The full hex is in each receipt's `public_key`.
+- The video's frames of SAM boxes are drawn by `scripts/receipt_boxes.py` from those receipts. It draws only when the
+  signature, the signer, the photo's sha256 and its size check out. Its tests are in `tests/test_receipt_boxes.py`.
 - `tests/data/real-*.json`: the raw Meta API answers (masks removed, no key), and `tests/test_real_data.py` runs the
   parsers on them offline.
 - `.github/workflows/ci.yml`: the whole suite with no network and no key, plus the numbers guards.

@@ -219,9 +219,15 @@ once that lane's own records reach its cap. Keys: `a100b16dfd814a49` is the day-
 `37f9717d0627af51` the day-3 lane (Spanish voice note, explanations, explained check-ins), `50be0cedb34ab0b9` the
 measuring seat on the Mac, and `52182b2297d8556e` the video seat of 2026-11-04 (the clean copy that ran the
 submission video's real runs).
-Of the 39 calls in the ledger `receipts/llamadas.json`, 32 have a published receipt. The other 7 are the first
-`scripts/live_eval.py` run (2026-10-28, 15:23–15:24 UTC): they were signed on the Mac, but those receipts carry local
-machine paths, so they are not published.
+Of the 60 calls in the ledger `receipts/llamadas.json`, 51 have a published receipt. The other 9:
+- 7 are the first `scripts/live_eval.py` run (2026-10-28, 15:23–15:24 UTC): they were signed on the Mac, but those
+  receipts carry local machine paths, so they are not published.
+- 2 are English explanations from 2026-11-04 (19:25 and 19:30 UTC). `scripts/explain_receipt.py` signed them with its
+  default `--keys-dir keys-lane3`, a key the video copy had never had, so they carry a valid signature from an unknown
+  signer and stay out of `receipts/`. The run of 19:34 UTC passed `--keys-dir keys` and is published.
+
+Three of the 51 are the API calls that `scripts/pull_the_plug.py` sent to a closed local port on 2026-11-04: the ledger
+records them with no HTTP status, and run 2's receipt records the fallback they caused.
 
 ## Numbers policy
 
@@ -242,7 +248,8 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
 
 - `fixtures/` are hand-written and labelled FIXTURE in file name and content. They are not model outputs.
 - The `evals/` media are a handful of test inputs: two public photos (`boxes-pallet.jpg` stays only as the input of
-  the 2026-10-28 receipts, see `evals/public/PROCEDENCIA.md`), one synthetic Carta de Porte and one second of silence.
+  the 2026-10-28 receipts, see `evals/public/PROCEDENCIA.md`), one synthetic Carta de Porte, one second of silence, and
+  one photo by the author (`evals/own/devices.jpg`, EXIF removed).
   They are not an accuracy benchmark. The SYNTHETIC-TTS Spanish voice note (macOS voice, not a person) behind the
   three real transcripts was withdrawn for its license (`evals/PROCEDENCIA.md`); its receipts and transcripts stay.
   There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
@@ -261,8 +268,13 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
   "el", "número", "No.", "pues", "eh" ("el sello de la carta es ..."). On that generator the parser gave no wrong
   value, never picked one of two values and never left a None without a reason.
 - No local speech-to-text: in `--mode local` the voice witness is `NO_MODEL`, so local check-ins HOLD.
-- `--mode local` has one real Glimmer run (`receipts/20261028T165434299357Z-HOLD.json`); the local fallback of
-  `--mode auto` has only been run against a fake worker in tests, no real run backs it yet.
+- `--mode local` has one real Glimmer run (`receipts/20261028T165434299357Z-HOLD.json`). The local fallback of
+  `--mode auto` has one real run: `receipts/20261104T194138670127Z-HOLD.json`, run 2 of `scripts/pull_the_plug.py` on
+  2026-11-04, with the API on a closed local port.
+- SAM 3.1 on the author's own photo (`evals/own/devices.jpg`, EXIF removed), 2026-11-04: asked for "projector", it
+  boxed the VR headset (`receipts/live-sam-devices-projector-20261104T200906Z.json`). A wrong answer, kept as it was
+  recorded. "VR headset", "stylus" and "smartphone" each boxed the right device. Four answers on one photo are not an
+  accuracy figure.
 - Muse Glimmer needs `mlx_vlm` >= 0.7.10 (model type `muse_glimmer`); point `TINYTMS_LOCAL_PYTHON` at an interpreter that has it.
 - The voice seal parser collapses a letter group repeated back to back ("MX MX") as an ASR stutter. A driver who
   really says a doubled prefix against a paper with a single one would match; accepted and written down here.

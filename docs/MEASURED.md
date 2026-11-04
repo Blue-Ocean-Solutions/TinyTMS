@@ -35,11 +35,21 @@ recorded when it was signed; parsers have changed since (tests/test_real_data.py
 | 2026-10-28T16:05:14.217793Z | check-in · api | vision sam-3.1, doc muse-spark-1.3, voice muse-voice-transcribe-1.0 (meta-api) | vision 200 · doc 200 · voice 200 · explain 200 | vision 2.119 s · doc 2.24 s · voice 2.736 s · explain 3.918 s | HOLD: VOICE_NO_COUNT, COUNT_MISMATCH doc=12 vision=1, SEAL_MISMATCH doc=MX48213 voice=MXMX48213; explanation OK (es) | `37f9717d0627af51` | [20261028T160514217793Z-HOLD.json](../receipts/20261028T160514217793Z-HOLD.json) |
 | 2026-10-28T16:06:26.939074Z | check-in · api | vision sam-3.1, doc muse-spark-1.3, voice muse-voice-transcribe-1.0 (meta-api) | vision 200 · doc 200 · voice 200 · explain 200 | vision 2.236 s · doc 1.899 s · voice 3.006 s · explain 3.811 s | HOLD: VOICE_NO_COUNT, COUNT_MISMATCH doc=12 vision=1, SEAL_MISMATCH doc=MX48213 voice=SMX48213; explanation OK (es) | `37f9717d0627af51` | [20261028T160626939074Z-HOLD.json](../receipts/20261028T160626939074Z-HOLD.json) |
 | 2026-10-28T16:54:34.299357Z | check-in · local | vision muse-glimmer-30b-4bit@local, doc muse-glimmer-30b-4bit@local, voice none (local-mlx) | — | — | HOLD: NO_MODEL:voice | `50be0cedb34ab0b9` | [20261028T165434299357Z-HOLD.json](../receipts/20261028T165434299357Z-HOLD.json) |
+| 2026-11-04T19:23:06.594488Z | check-in · api | vision sam-3.1, doc muse-spark-1.3, voice muse-voice-transcribe-1.0 (meta-api) | vision 200 · doc 200 · voice 200 · explain 200 | vision 1.394 s · doc 5.03 s · voice 0.858 s · explain 12.183 s | HOLD: VOICE_NO_COUNT, COUNT_MISMATCH doc=12 vision=0, SEAL_MISSING voice; explanation OK (es) | `52182b2297d8556e` | [20261104T192306594488Z-HOLD.json](../receipts/20261104T192306594488Z-HOLD.json) |
+| 2026-11-04T19:24:07.727942Z | check-in · api | vision sam-3.1, doc muse-spark-1.3, voice muse-voice-transcribe-1.0 (meta-api) | vision 200 · doc 200 · voice 200 · explain 200 | vision 1.592 s · doc 5.971 s · voice 0.846 s · explain 8.945 s | HOLD: VOICE_NO_COUNT, COUNT_MISMATCH doc=12 vision=0, SEAL_MISSING voice; explanation OK (es) | `52182b2297d8556e` | [20261104T192407727942Z-HOLD.json](../receipts/20261104T192407727942Z-HOLD.json) |
+| 2026-11-04T19:34:32.843642Z | explain | muse-spark-1.3 (meta-api) | 200 | 8.316 s | explanation OK (en) for 20261104T192407727942Z-HOLD.json; output tokens 776 (reasoning 720) | `52182b2297d8556e` | [explain-20261104T193432Z.json](../receipts/explain-20261104T193432Z.json) |
+| 2026-11-04T19:40:43.757756Z | check-in · api | vision sam-3.1, doc muse-spark-1.3, voice muse-voice-transcribe-1.0 (meta-api) | vision 200 · doc 200 · voice 200 | vision 1.184 s · doc 8.888 s · voice 0.932 s | HOLD: VOICE_NO_COUNT, COUNT_MISMATCH doc=12 vision=0, SEAL_MISSING voice | `52182b2297d8556e` | [20261104T194043757756Z-HOLD.json](../receipts/20261104T194043757756Z-HOLD.json) |
+| 2026-11-04T19:41:38.670127Z | check-in · auto | vision muse-glimmer-30b-4bit@local, doc muse-glimmer-30b-4bit@local, voice none (local-mlx) | vision None · doc None · voice None | vision 0.001 s · doc 0 s · voice 0 s | HOLD: NO_MODEL:voice | `52182b2297d8556e` | [20261104T194138670127Z-HOLD.json](../receipts/20261104T194138670127Z-HOLD.json) |
+| 2026-11-04T20:09:06.467415Z | live · sam | sam-3.1 (meta-api) | 200 | 1.186 s | count 1 (projector) | `52182b2297d8556e` | [live-sam-devices-projector-20261104T200906Z.json](../receipts/live-sam-devices-projector-20261104T200906Z.json) |
+| 2026-11-04T20:09:07.662647Z | live · sam | sam-3.1 (meta-api) | 200 | 0.539 s | count 1 (VR headset) | `52182b2297d8556e` | [live-sam-devices-vr-headset-20261104T200907Z.json](../receipts/live-sam-devices-vr-headset-20261104T200907Z.json) |
+| 2026-11-04T20:09:08.210015Z | live · sam | sam-3.1 (meta-api) | 200 | 0.998 s | count 1 (stylus) | `52182b2297d8556e` | [live-sam-devices-stylus-20261104T200908Z.json](../receipts/live-sam-devices-stylus-20261104T200908Z.json) |
+| 2026-11-04T20:09:09.216182Z | live · sam | sam-3.1 (meta-api) | 200 | 1.012 s | count 1 (smartphone) | `52182b2297d8556e` | [live-sam-devices-smartphone-20261104T200909Z.json](../receipts/live-sam-devices-smartphone-20261104T200909Z.json) |
 
 ## Signing keys
 
 - `37f9717d0627af51` (day-3 API lane: Spanish voice note, explanations, explained check-ins): 8 receipts
 - `50be0cedb34ab0b9` (measuring seat: the local Glimmer receipts): 2 receipts
+- `52182b2297d8556e` (2026-11-04 video seat: L1 clean copy for the submission video runs (word of Carlos, 07:02 CST)): 9 receipts
 - `a100b16dfd814a49` (day-2 API lane: live witnesses and the first API check-in): 14 receipts
 
 ## Not verified
@@ -48,4 +58,4 @@ Listed so nothing in the receipts folder goes unseen. These are not evidence of 
 
 | file | why |
 |---|---|
-| [llamadas.json](../receipts/llamadas.json) | no signature: the API call ledger (39 calls: muse-spark-1.3 15, muse-voice-transcribe-1.0 8, sam-3.1 16) |
+| [llamadas.json](../receipts/llamadas.json) | no signature: the API call ledger (60 calls: muse-spark-1.3 24, muse-voice-transcribe-1.0 12, sam-3.1 24) |
