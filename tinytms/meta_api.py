@@ -41,7 +41,9 @@ VOICE_RATES = (16000, 24000)
 VOICE_LANGUAGE_BIAS = ["Spanish", "English"]
 
 # Per-model call caps for one call log (credits are real money). Over the cap -> ERROR, no request sent.
-DEFAULT_CAPS: dict[str, int] = {SAM_MODEL: 60, SPARK_MODEL: 60, VOICE_MODEL: 20}
+DEFAULT_CAPS: dict[str, int] = {SAM_MODEL: 60, SPARK_MODEL: 60, VOICE_MODEL: 20,
+                                # the colleagues (tinytms/colleagues.py): advice only, so a small budget
+                                "muse-wonder-1.0": 10, "muse-spark-1.1": 10}
 # Optional per-lane caps on the same ledger: TINYTMS_LANE names the lane (stamped on every record) and
 # TINYTMS_LANE_CAPS="sam-3.1=20,muse-spark-1.3=25" caps that lane's own records only.
 LANE_ENV, LANE_CAPS_ENV = "TINYTMS_LANE", "TINYTMS_LANE_CAPS"

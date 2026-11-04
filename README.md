@@ -157,6 +157,32 @@ a key not in `keys/known_signers.txt` (your own local key included, until it is 
   effort and at `low` alike: `receipts/explain-20261028T160346Z.json`, `receipts/explain-20261028T160427Z.json`.
   The two completed runs (es, en) are `receipts/explain-20261028T160450Z.json` and `receipts/explain-20261028T160459Z.json`.
 
+## Colleagues behind a firewall
+
+`tinytms/colleagues.py`, `scripts/ask_colleagues.py` (2026-11-04). More Meta models are asked about a check-in **the
+judge already decided**. They are colleagues: their answers are advice, never a vote.
+
+- **Who.**
+  - **Muse Wonder 1.0** audits a signed HOLD: does each of the judge's reasons follow from what the witnesses reported?
+    It answers CONSISTENT or lists what does not follow.
+  - **Muse Spark 1.1** gives a second opinion on the photo's count.
+  - SAM 3.1, Muse Spark 1.3 and Muse Voice Transcribe are the witnesses already; Muse Glimmer is the local fallback.
+- **What goes out.** Only what the source receipt holds: the judge's reasons and the witnesses' structured fields (the
+  same whitelist as the driver's explanation). For Spark 1.1 it also sends the receipt's own photo, and only if its
+  sha256 matches the receipt.
+- **The firewall.** Every outgoing text is checked first against a **local** list, outside the repository, plus
+  key-shaped strings and machine paths. The list lives at `TINYTMS_FIREWALL_FILE`, default
+  `~/.config/tinytms/firewall.txt`, and is never committed, so the names it guards are not published by guarding them.
+  - A hit stops the call: status `REFUSED`, nothing is sent, and the refused prompt is kept only as its sha256.
+  - With no list, no colleague is called at all.
+- **What it does NOT do.** It never changes the verdict: the colleague's receipt
+  (`receipts/colleague-<name>-<utc>.json`) holds a copy of the verdict next to the advice, and a colleague saying
+  "ACCEPT" changes nothing. Each model has its own call cap in the ledger.
+
+```bash
+MODEL_API_KEY=... python scripts/ask_colleagues.py --receipt receipts/<file>-HOLD.json   # wonder,spark-1.1
+```
+
 ## Web
 
 `python -m tinytms.web --port 8765 --receipts-dir receipts [--keys-dir keys] [--host 127.0.0.1]`
