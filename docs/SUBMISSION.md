@@ -145,7 +145,7 @@ Spanish voice note was withdrawn for its license, which allows personal, non-com
 ## Links
 
 - Repository: <https://github.com/Blue-Ocean-Solutions/TinyTMS>
-- Demo video: [link; outline in `docs/VIDEO-OUTLINE.md`]
+- Demo video: https://youtu.be/TsM0gG8-yDw (outline in `docs/VIDEO-OUTLINE.md`)
 - Live demo: [none; the web page is a one-machine dock demo and binds 127.0.0.1 by design]
 
 ## What is not here yet

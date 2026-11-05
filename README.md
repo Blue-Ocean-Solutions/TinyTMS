@@ -3,6 +3,8 @@
 A small carrier backs into the dock with pallets and a paper bill of lading / Carta de Porte.
 tinyTMS checks the load in with **three witnesses and a judge**, and signs what it decided.
 
+**Demo video:** https://youtu.be/TsM0gG8-yDw (outline and the receipt behind each shot: `docs/VIDEO-OUTLINE.md`)
+
 | Witness | Input | Model | What it reports |
 |---|---|---|---|
 | **Vision** | photo of the load | SAM 3.1 (Meta Model API), concept prompt `pallet` | count (+ boxes) |
