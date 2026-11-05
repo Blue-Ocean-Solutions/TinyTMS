@@ -47,8 +47,10 @@ decide, explains a HOLD to the driver in their language, and signs the whole thi
 
 ## What was built during the event
 
-Every commit on `main` up to `7166006` is dated 2026-10-28 and those of #7 to #10 are dated 2026-10-29
-(`git log --format=%ad main`), inside the building period.
+The repository was created on GitHub on 2026-10-28 (its `created_at`), inside the building period, and its first
+commit `9eb8e52` is from the same day. Every commit on `main` up to `7166006` is dated 2026-10-28 and those of #7 to
+#10 are dated 2026-10-29 (`git log --format=%ad main`). The last pull request merged before this table was updated
+is #25, on 2026-11-03.
 By pull request, from `git log --merges`:
 
 | PR | What it added |
@@ -64,7 +66,19 @@ By pull request, from `git log --merges`:
 | [#8](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/8) | This package: `docs/SUBMISSION.md`, `docs/VIDEO-OUTLINE.md`, `scripts/check_docs_numbers.py` (numbers guard for docs, in CI); README corrected on local mode and the third signer key. |
 | [#9](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/9) | Follow-up to #8: this table lists #7 and #8; the maqueta commands in the video shot list. |
 | [#10](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/10) | Judge hardened with property tests over 5000 generated witness triples, fixed seed (`tests/test_verify_properties.py`), and two fail-open fixes: non-ASCII seal look-alikes no longer match, and a NaN weight limit now fails closed. The Spanish/English voice parser rewritten to fail closed on self-corrections, alternatives and approximations, with a 62-case SYNTHETIC hand-written corpus (`tests/data/voice-es-variantes.json`). |
-| [later PRs] | [A human: add every PR merged after this package, with its number.] |
+| [#11](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/11) | Follow-up by Nube-4: this table lists #9 and #10; the 62-case voice corpus sits next to the three real transcripts. |
+| [#12](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/12) | Nube-1: `receipts/INDEX.md`, `GET /receipts/` on the web page, known signers checked in CI. |
+| [#13](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/13) | Nube-3: the README's "What is measured" is generated from the receipts, and CI fails when it is stale. |
+| [#14](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/14) | Nube-4: `scripts/pull_the_plug.py` and `scripts/receipt_show.py`, for beat 4 of the video. |
+| [#15](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/15) | Local mode: the paper witness records `wall_s` like the vision witness. |
+| [#16](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/16) | Seven signed day-2 receipts that were only on disk are published. |
+| [#17](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/17) | The 3-minute video script; `boxes-pallet.jpg` and the TTS voice note out of the commands. |
+| [#18](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/18) | Nube-4: the TTS voice and the old photo out of the commands; texts sized to their receipts. |
+| [#19](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/19) | Nube-3: the judge's path in the README: verify receipts, a clean demo, Python 3.12, exit code 3. |
+| [#20](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/20) | Follow-up: `pull_the_plug` exits 3 on a bad argument; two wording fixes. |
+| #21 | Not merged: a read-only brainstorm on where the judge decides. |
+| [#22](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/22), [#23](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/23), [#24](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/24) | Voice parser rounds by Nube-7, Nube-8 and Nube-9, each superseded by the next. GitHub lists them as merged because their commits are part of #25. |
+| [#25](https://github.com/Blue-Ocean-Solutions/TinyTMS/pull/25) | Nube-10: the voice parser closes #24's gaps and stops holding good loads. The parser is frozen here for the deadline; its known limits are under "What is not here yet". |
 
 ## Meta tools used
 
@@ -96,11 +110,18 @@ has the local, auto, explain and web commands.
 
 ## Evidence for reviewers
 
-- `receipts/`: the published signed runs (32 of the 39 API calls in `receipts/llamadas.json` have one; README, "What is
-  measured", says why the other 7 do not); each one passes `python scripts/receipt_show.py`. Three signer
-  keys, by `public_key` prefix: `50be0ced` (the measuring seat: the two local Glimmer receipts), `a100b16d` (the
-  day-2 API lane) and `37f9717d` (the day-3 API lane: the Spanish voice, explanation and explained check-in receipts).
+- `receipts/`: the published signed runs. 62 of the 71 API calls in `receipts/llamadas.json` have one, and README,
+  "What is measured", says why the other 9 do not. Each receipt passes `python scripts/receipt_show.py`. Four signer
+  keys, by `public_key` prefix:
+  - `50be0ced`: the measuring seat (the two local Glimmer receipts of 2026-10-28);
+  - `a100b16d`: the day-2 API lane;
+  - `37f9717d`: the day-3 API lane (the Spanish voice, explanation and explained check-in receipts);
+  - `52182b22`: the video seat of 2026-11-04 (the video's check-ins, its English explanation, the pull-the-plug runs
+    and the four SAM answers on the author's photo).
+
   The full hex is in each receipt's `public_key`.
+- The video's frames of SAM boxes are drawn by `scripts/receipt_boxes.py` from those receipts. It draws only when the
+  signature, the signer, the photo's sha256 and its size check out. Its tests are in `tests/test_receipt_boxes.py`.
 - `tests/data/real-*.json`: the raw Meta API answers (masks removed, no key), and `tests/test_real_data.py` runs the
   parsers on them offline.
 - `.github/workflows/ci.yml`: the whole suite with no network and no key, plus the numbers guards.
@@ -118,13 +139,13 @@ Spanish voice note was withdrawn for its license, which allows personal, non-com
 - [Team name]
 - [Members, roles, country, contact]
 - What the repository shows: GitHub organization `Blue-Ocean-Solutions`; every pull request merged by `cefuentes82`.
-  Code was written with Claude Code sessions ("lanes": L1, F1, Nube-1 to Nube-4), each credited in the
-  `Co-Authored-By` trailers of its commits.
+  Code was written with Claude Code sessions, credited by seat name in their commits and pull requests: L1, F1,
+  and the cloud seats Nube-1 to Nube-4 and Nube-6 to Nube-10. Each commit also carries a `Co-Authored-By` trailer.
 
 ## Links
 
 - Repository: <https://github.com/Blue-Ocean-Solutions/TinyTMS>
-- Demo video: [link; outline in `docs/VIDEO-OUTLINE.md`]
+- Demo video: https://youtu.be/TsM0gG8-yDw (outline in `docs/VIDEO-OUTLINE.md`)
 - Live demo: [none; the web page is a one-machine dock demo and binds 127.0.0.1 by design]
 
 ## What is not here yet
@@ -150,16 +171,21 @@ request that added this file: `--mode local` has a real run, the local fallback 
   el de ayer"), reported broken, missing or not matching anywhere after it in the note ("... Está roto."), taken from
   the paperwork or someone else ("La oficina me pasó el sello ..."), spelled with a first letter that is also a word
   ("ese eme equis ...", "el sello es eme equis ..."), or said after any word but lead-ins and fillers such as "es",
-  "el", "número", "No.", "pues", "eh" ("el sello de la carta es ..."). On that generator the parser gave no wrong
-  value, never picked one of two values and never left a None without a reason.
+  "el", "número", "No.", "pues", "eh" ("el sello de la carta es ..."). On that generator, with the seed in this
+  repository, the parser gave no wrong value, never picked one of two values and never left a None without a reason.
+  A review with other seeds found broken notes, so that result holds for this seed only.
 - No local speech-to-text: in `--mode local` the voice witness is `NO_MODEL`, so local check-ins HOLD.
 - `--mode local` has one real Glimmer run (`receipts/20261028T165434299357Z-HOLD.json`); the local fallback of
   `--mode auto` has only been run against a fake worker in tests, no real run backs it yet.
 - Muse Glimmer needs `mlx_vlm` >= 0.7.10 (model type `muse_glimmer`); point `TINYTMS_LOCAL_PYTHON` at an interpreter that has it.
 - The voice seal parser collapses a letter group repeated back to back ("MX MX") as an ASR stutter. A driver who
   really says a doubled prefix against a paper with a single one would match; accepted and written down here.
-- Limits of the voice parser: damage, retraction, second-hand and hedge wording outside the parser's lists can still
-  be misread.
+- Limits of the voice parser, frozen for the deadline at #25. A review on adversarial SYNTHETIC notes (2026-11-03)
+  still found phrasings it reads as a clean count or seal when it should give None, so a false ACCEPT is possible on
+  them: a source said with a preposition ("En la planta me apuntaron doce tarimas"), a partial seal followed by
+  "y algo" / "and something", a count change said as "make that one more", and an all-clear that closes what
+  follows ("nada roto, bueno, el sello sí"). Damage, retraction, second-hand and hedge wording outside the parser's
+  lists can still be misread.
 - `tinytms/capture.py` can grab a camera frame (`cv2.VideoCapture`), but the CLI does not use it yet. The web page
   is local and single-user. There are no TMS records (load / stop / document) and no exception tickets yet.
 - Nothing about customs or government filings.

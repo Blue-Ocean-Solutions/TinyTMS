@@ -2,12 +2,14 @@
  "tope": {
   "sam-3.1": 60,
   "muse-spark-1.3": 60,
-  "muse-voice-transcribe-1.0": 20
+  "muse-voice-transcribe-1.0": 20,
+  "muse-wonder-1.0": 10,
+  "muse-spark-1.1": 10
  },
  "cuenta": {
-  "muse-voice-transcribe-1.0": 8,
-  "sam-3.1": 16,
-  "muse-spark-1.3": 15
+  "muse-voice-transcribe-1.0": 15,
+  "sam-3.1": 27,
+  "muse-spark-1.3": 29
  },
  "lanes": {
   "F1-api-tinytms-3": {
@@ -349,6 +351,268 @@
    "s": 3.811,
    "origen": "cli explain",
    "lane": "F1-api-tinytms-3"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:22:59.306711Z",
+   "http": 200,
+   "s": 1.394,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:23:00.704215Z",
+   "http": 200,
+   "s": 5.03,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-voice-transcribe-1.0",
+   "endpoint": "/asr/transcribe",
+   "utc": "2026-11-04T19:23:05.735291Z",
+   "http": 200,
+   "s": 0.858,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:23:06.597704Z",
+   "http": 200,
+   "s": 12.183,
+   "origen": "cli explain"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:23:59.314227Z",
+   "http": 200,
+   "s": 1.592,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:24:00.909360Z",
+   "http": 200,
+   "s": 5.971,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-voice-transcribe-1.0",
+   "endpoint": "/asr/transcribe",
+   "utc": "2026-11-04T19:24:06.881113Z",
+   "http": 200,
+   "s": 0.846,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:24:07.730880Z",
+   "http": 200,
+   "s": 8.945,
+   "origen": "cli explain"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:25:48.398270Z",
+   "http": 200,
+   "s": 7.892,
+   "origen": "scripts/explain_receipt.py"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:30:45.290142Z",
+   "http": 200,
+   "s": 12.537,
+   "origen": "scripts/explain_receipt.py"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:34:24.524236Z",
+   "http": 200,
+   "s": 8.316,
+   "origen": "scripts/explain_receipt.py"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:40:32.746946Z",
+   "http": 200,
+   "s": 1.184,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:40:33.935102Z",
+   "http": 200,
+   "s": 8.888,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-voice-transcribe-1.0",
+   "endpoint": "/asr/transcribe",
+   "utc": "2026-11-04T19:40:42.824916Z",
+   "http": 200,
+   "s": 0.932,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:40:43.905077Z",
+   "http": null,
+   "s": 0.001,
+   "origen": "cli checkin",
+   "nota": "transport: ConnectError: [Errno 61] Connection refused"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T19:40:43.908882Z",
+   "http": null,
+   "s": 0.0,
+   "origen": "cli checkin",
+   "nota": "transport: ConnectError: [Errno 61] Connection refused"
+  },
+  {
+   "modelo": "muse-voice-transcribe-1.0",
+   "endpoint": "/asr/transcribe",
+   "utc": "2026-11-04T19:40:43.909837Z",
+   "http": null,
+   "s": 0.0,
+   "origen": "cli checkin",
+   "nota": "transport: ConnectError: [Errno 61] Connection refused"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T20:09:06.467415Z",
+   "http": 200,
+   "s": 1.186,
+   "origen": "scripts/live_eval.py"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T20:09:07.662647Z",
+   "http": 200,
+   "s": 0.539,
+   "origen": "scripts/live_eval.py"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T20:09:08.210015Z",
+   "http": 200,
+   "s": 0.998,
+   "origen": "scripts/live_eval.py"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T20:09:09.216182Z",
+   "http": 200,
+   "s": 1.012,
+   "origen": "scripts/live_eval.py"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T23:56:45.940307Z",
+   "http": 200,
+   "s": 1.273,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T23:56:47.224009Z",
+   "http": 200,
+   "s": 3.851,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-voice-transcribe-1.0",
+   "endpoint": "/asr/transcribe",
+   "utc": "2026-11-04T23:56:51.076720Z",
+   "http": 200,
+   "s": 0.811,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-04T23:56:51.894662Z",
+   "http": 200,
+   "s": 6.576,
+   "origen": "cli explain"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-05T00:00:33.944147Z",
+   "http": 200,
+   "s": 12.245,
+   "origen": "scripts/explain_receipt.py"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-11-05T00:04:51.358759Z",
+   "http": 200,
+   "s": 0.971,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-05T00:04:52.336856Z",
+   "http": 200,
+   "s": 5.239,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "muse-voice-transcribe-1.0",
+   "endpoint": "/asr/transcribe",
+   "utc": "2026-11-05T00:04:57.577070Z",
+   "http": 200,
+   "s": 0.754,
+   "origen": "cli checkin"
+  },
+  {
+   "modelo": "sam-3.1",
+   "endpoint": "/responses",
+   "utc": "2026-11-05T00:04:58.485804Z",
+   "http": null,
+   "s": 0.001,
+   "origen": "cli checkin",
+   "nota": "transport: ConnectError: [Errno 61] Connection refused"
+  },
+  {
+   "modelo": "muse-spark-1.3",
+   "endpoint": "/responses",
+   "utc": "2026-11-05T00:04:58.489892Z",
+   "http": null,
+   "s": 0.0,
+   "origen": "cli checkin",
+   "nota": "transport: ConnectError: [Errno 61] Connection refused"
+  },
+  {
+   "modelo": "muse-voice-transcribe-1.0",
+   "endpoint": "/asr/transcribe",
+   "utc": "2026-11-05T00:04:58.491098Z",
+   "http": null,
+   "s": 0.0,
+   "origen": "cli checkin",
+   "nota": "transport: ConnectError: [Errno 61] Connection refused"
   }
  ]
 }

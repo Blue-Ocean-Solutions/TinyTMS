@@ -3,6 +3,8 @@
 A small carrier backs into the dock with pallets and a paper bill of lading / Carta de Porte.
 tinyTMS checks the load in with **three witnesses and a judge**, and signs what it decided.
 
+**Demo video:** https://youtu.be/TsM0gG8-yDw (outline and the receipt behind each shot: `docs/VIDEO-OUTLINE.md`)
+
 | Witness | Input | Model | What it reports |
 |---|---|---|---|
 | **Vision** | photo of the load | SAM 3.1 (Meta Model API), concept prompt `pallet` | count (+ boxes) |
@@ -68,6 +70,14 @@ Verify a receipt. One screen, signature and signer checked first (exit `1` if ei
 
 ```bash
 python scripts/receipt_show.py receipts/<file>.json
+```
+
+See what a SAM witness saw: its boxes drawn on its own photo, under a caption naming the receipt. Nothing is drawn
+(exit `1`) unless the signature verifies, the signer is known, the photo's sha256 is the one the receipt signed, and
+the boxes match the receipt's own count and image size:
+
+```bash
+python scripts/receipt_boxes.py receipts/<live-sam-file>.json --out <frame>.png
 ```
 
 Or in Python, pinning origin to the seats in `keys/known_signers.txt` (`True` for every committed receipt, `False`
@@ -149,6 +159,32 @@ a key not in `keys/known_signers.txt` (your own local key included, until it is 
   effort and at `low` alike: `receipts/explain-20261028T160346Z.json`, `receipts/explain-20261028T160427Z.json`.
   The two completed runs (es, en) are `receipts/explain-20261028T160450Z.json` and `receipts/explain-20261028T160459Z.json`.
 
+## Colleagues behind a firewall
+
+`tinytms/colleagues.py`, `scripts/ask_colleagues.py` (2026-11-04). More Meta models are asked about a check-in **the
+judge already decided**. They are colleagues: their answers are advice, never a vote.
+
+- **Who.**
+  - **Muse Wonder 1.0** audits a signed HOLD: does each of the judge's reasons follow from what the witnesses reported?
+    It answers CONSISTENT or lists what does not follow.
+  - **Muse Spark 1.1** gives a second opinion on the photo's count.
+  - SAM 3.1, Muse Spark 1.3 and Muse Voice Transcribe are the witnesses already; Muse Glimmer is the local fallback.
+- **What goes out.** Only what the source receipt holds: the judge's reasons and the witnesses' structured fields (the
+  same whitelist as the driver's explanation). For Spark 1.1 it also sends the receipt's own photo, and only if its
+  sha256 matches the receipt.
+- **The firewall.** Every outgoing text is checked first against a **local** list, outside the repository, plus
+  key-shaped strings and machine paths. The list lives at `TINYTMS_FIREWALL_FILE`, default
+  `~/.config/tinytms/firewall.txt`, and is never committed, so the names it guards are not published by guarding them.
+  - A hit stops the call: status `REFUSED`, nothing is sent, and the refused prompt is kept only as its sha256.
+  - With no list, no colleague is called at all.
+- **What it does NOT do.** It never changes the verdict: the colleague's receipt
+  (`receipts/colleague-<name>-<utc>.json`) holds a copy of the verdict next to the advice, and a colleague saying
+  "ACCEPT" changes nothing. Each model has its own call cap in the ledger.
+
+```bash
+MODEL_API_KEY=... python scripts/ask_colleagues.py --receipt receipts/<file>-HOLD.json   # wonder,spark-1.1
+```
+
 ## Web
 
 `python -m tinytms.web --port 8765 --receipts-dir receipts [--keys-dir keys] [--host 127.0.0.1]`
@@ -209,10 +245,18 @@ back to "MX", so it HOLDs on `SEAL_MISMATCH`). Every API call is also logged to 
 `TINYTMS_LANE_CAPS` (e.g. `sam-3.1=20,muse-spark-1.3=25`) each record carries its lane and the client refuses a call
 once that lane's own records reach its cap. Keys: `a100b16dfd814a49` is the day-2 API lane,
 `37f9717d0627af51` the day-3 lane (Spanish voice note, explanations, explained check-ins), `50be0cedb34ab0b9` the
-measuring seat on the Mac.
-Of the 39 calls in the ledger `receipts/llamadas.json`, 32 have a published receipt. The other 7 are the first
-`scripts/live_eval.py` run (2026-10-28, 15:23–15:24 UTC): they were signed on the Mac, but those receipts carry local
-machine paths, so they are not published.
+measuring seat on the Mac, and `52182b2297d8556e` the video seat of 2026-11-04 (the clean copy that ran the
+submission video's real runs).
+Of the 71 calls in the ledger `receipts/llamadas.json`, 62 have a published receipt. The other 9:
+- 7 are the first `scripts/live_eval.py` run (2026-10-28, 15:23–15:24 UTC): they were signed on the Mac, but those
+  receipts carry local machine paths, so they are not published.
+- 2 are English explanations from 2026-11-04 (19:25 and 19:30 UTC). `scripts/explain_receipt.py` signed them with its
+  default `--keys-dir keys-lane3`, a key the video copy had never had, so they carry a valid signature from an unknown
+  signer and stay out of `receipts/`. The run of 19:34 UTC passed `--keys-dir keys` and is published.
+
+Six of the 62 are the API calls that `scripts/pull_the_plug.py` sent to a closed local port in its two runs of
+2026-11-04 (CST), the second one recorded for the video: the ledger records them with no HTTP status, and each run 2
+receipt records the fallback they caused.
 
 ## Numbers policy
 
@@ -233,7 +277,8 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
 
 - `fixtures/` are hand-written and labelled FIXTURE in file name and content. They are not model outputs.
 - The `evals/` media are a handful of test inputs: two public photos (`boxes-pallet.jpg` stays only as the input of
-  the 2026-10-28 receipts, see `evals/public/PROCEDENCIA.md`), one synthetic Carta de Porte and one second of silence.
+  the 2026-10-28 receipts, see `evals/public/PROCEDENCIA.md`), one synthetic Carta de Porte, one second of silence, and
+  one photo by the author (`evals/own/devices.jpg`, EXIF removed).
   They are not an accuracy benchmark. The SYNTHETIC-TTS Spanish voice note (macOS voice, not a person) behind the
   three real transcripts was withdrawn for its license (`evals/PROCEDENCIA.md`); its receipts and transcripts stay.
   There is no real driver voice note yet, and the voice parser has only seen three real transcripts of one note.
@@ -252,8 +297,16 @@ and `tests/test_no_absolute_paths.py` fails CI if one slips into `receipts/` or 
   "el", "número", "No.", "pues", "eh" ("el sello de la carta es ..."). On that generator the parser gave no wrong
   value, never picked one of two values and never left a None without a reason.
 - No local speech-to-text: in `--mode local` the voice witness is `NO_MODEL`, so local check-ins HOLD.
-- `--mode local` has one real Glimmer run (`receipts/20261028T165434299357Z-HOLD.json`); the local fallback of
-  `--mode auto` has only been run against a fake worker in tests, no real run backs it yet.
+- The colleagues layer (Muse Wonder 1.0, Muse Spark 1.1) has not run against the live API yet: its tests use a mock
+  transport, and no `receipts/colleague-*.json` is published.
+- `--mode local` has one real Glimmer run (`receipts/20261028T165434299357Z-HOLD.json`). The local fallback of
+  `--mode auto` has two real runs, `receipts/20261104T194138670127Z-HOLD.json` and
+  `receipts/20261105T000538292980Z-HOLD.json` (the video's): run 2 of `scripts/pull_the_plug.py` on 2026-11-04 (CST),
+  with the API on a closed local port.
+- SAM 3.1 on the author's own photo (`evals/own/devices.jpg`, EXIF removed), 2026-11-04: asked for "projector", it
+  boxed the VR headset (`receipts/live-sam-devices-projector-20261104T200906Z.json`). A wrong answer, kept as it was
+  recorded. "VR headset", "stylus" and "smartphone" each boxed the right device. Four answers on one photo are not an
+  accuracy figure.
 - Muse Glimmer needs `mlx_vlm` >= 0.7.10 (model type `muse_glimmer`); point `TINYTMS_LOCAL_PYTHON` at an interpreter that has it.
 - The voice seal parser collapses a letter group repeated back to back ("MX MX") as an ASR stutter. A driver who
   really says a doubled prefix against a paper with a single one would match; accepted and written down here.

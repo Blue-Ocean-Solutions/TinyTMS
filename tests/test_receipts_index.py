@@ -121,9 +121,9 @@ def test_repository_index_is_fresh_and_every_receipt_verifies():
     assert ri.main(["--check"]) == 0
 
 
-def test_known_signers_are_the_three_seats_the_readme_names():
+def test_known_signers_are_the_seats_the_readme_names():
     known = ri.load_known_signers(REPO / "keys" / "known_signers.txt")
-    assert sorted(k[:8] for k in known) == ["37f9717d", "50be0ced", "a100b16d"]
+    assert sorted(k[:8] for k in known) == ["37f9717d", "50be0ced", "52182b22", "a100b16d"]
     assert all(known.values())  # every key says which seat it is
 
 

@@ -2,13 +2,14 @@
 
 Needs MODEL_API_KEY in the environment (never on the command line). Without it: exit 3, nothing run.
 
-    python scripts/live_eval.py [--evals evals] [--keys-dir keys-lane2] [--save-test-data tests/data] [--only sam,spark,voice,voice-es]
+    python scripts/live_eval.py [--evals evals] [--keys-dir keys-lane2] [--save-test-data tests/data] [--only sam,spark,voice,voice-es,sam-own] [--concepts television,tablet]
 
 Cases (evals/PROCEDENCIA.md):
   SAM 3.1    evals/public/boxes-moving.jpg  x  concepts "cardboard box", "pallet"
   Spark 1.3  evals/doc/carta_sintetica.png -> JSON fields
   Voice      evals/voice/silencio_16k.wav  -> empty transcript expected            (case voice)
   Voice      evals/voice/es-*.wav          -> a Spanish voice note, if there is one  (case voice-es)
+  SAM 3.1    evals/own/*.jpg  x  --concepts -> the author's own photos, EXIF removed (case sam-own, not a default)
 
 boxes-pallet.jpg is no longer a case: it stays in evals/public/ only as the input of the 2026-10-28 receipts
 (evals/public/PROCEDENCIA.md). The SYNTHETIC-TTS Spanish note was withdrawn for its license (evals/PROCEDENCIA.md);
@@ -48,6 +49,8 @@ SAM_CONCEPTS = ("cardboard box", "pallet")
 DOC = "doc/carta_sintetica.png"
 VOICE = "voice/silencio_16k.wav"  # case voice keeps its original untagged receipt and test-data names
 VOICE_ES = "voice/es-*.wav"  # case voice-es: tagged with the note's own name
+OWN_PHOTOS = "own/*.jpg"  # case sam-own: photos taken for this repo by its author, EXIF removed
+OWN_CONCEPTS = ("television", "tablet")
 
 Job = tuple[str, Path, str, str]  # kind, input, SAM concept, name tag
 
@@ -60,7 +63,7 @@ def _stamp(utc: str) -> str:
     return utc.replace("-", "").replace(":", "").replace(".", "")[:15] + "Z" if utc else "nodate"
 
 
-def plan(root: Path, only: set[str]) -> tuple[list[Job], list[str]]:
+def plan(root: Path, only: set[str], own_concepts: tuple[str, ...] = OWN_CONCEPTS) -> tuple[list[Job], list[str]]:
     """The calls to make for the selected cases, and a line for each case skipped because its input is absent."""
     jobs: list[Job] = []
     skipped: list[str] = []
@@ -77,6 +80,12 @@ def plan(root: Path, only: set[str]) -> tuple[list[Job], list[str]]:
         if not notes:
             skipped.append(f"voice-es: skipped, no Spanish voice note in {root / Path(VOICE_ES).parent} "
                            "(the SYNTHETIC-TTS one was withdrawn for its license, see evals/PROCEDENCIA.md)")
+    if "sam-own" in only:
+        photos = sorted(root.glob(OWN_PHOTOS))
+        jobs += [("sam", p, c, f"{_slug(p.stem)}-{_slug(c)}-") for p in photos for c in own_concepts]
+        if not photos:
+            skipped.append(f"sam-own: skipped, no own photo in {root / Path(OWN_PHOTOS).parent} "
+                           "(photos taken for this repo, EXIF removed)")
     return jobs, skipped
 
 
@@ -102,7 +111,8 @@ def main() -> int:
     ap.add_argument("--keys-dir", default="keys-lane2")
     ap.add_argument("--calls-log", default=None, help="default: <receipts-dir>/llamadas.json")
     ap.add_argument("--save-test-data", default=None, help="directory for real-<witness>-<utc>.json")
-    ap.add_argument("--only", default="sam,spark,voice", help="comma list of sam, spark, voice, voice-es")
+    ap.add_argument("--only", default="sam,spark,voice", help="comma list of sam, spark, voice, voice-es, sam-own")
+    ap.add_argument("--concepts", default=",".join(OWN_CONCEPTS), help="comma list of SAM concepts for sam-own")
     a = ap.parse_args()
 
     log = Path(a.calls_log) if a.calls_log else Path(a.receipts_dir) / "llamadas.json"
@@ -112,7 +122,8 @@ def main() -> int:
         print(f"NO_MODEL: {KEY_ENV} is not set; live eval needs a real key. Nothing was run.", file=sys.stderr)
         return 3
 
-    jobs, skipped = plan(Path(a.evals), set(a.only.split(",")))
+    own_concepts = tuple(c.strip() for c in a.concepts.split(",") if c.strip())
+    jobs, skipped = plan(Path(a.evals), set(a.only.split(",")), own_concepts=own_concepts)
     for line in skipped:
         print(line)
 
