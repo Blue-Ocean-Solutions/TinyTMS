@@ -110,7 +110,7 @@ has the local, auto, explain and web commands.
 
 ## Evidence for reviewers
 
-- `receipts/`: the published signed runs. 51 of the 60 API calls in `receipts/llamadas.json` have one, and README,
+- `receipts/`: the published signed runs. 62 of the 71 API calls in `receipts/llamadas.json` have one, and README,
   "What is measured", says why the other 9 do not. Each receipt passes `python scripts/receipt_show.py`. Four signer
   keys, by `public_key` prefix:
   - `50be0ced`: the measuring seat (the two local Glimmer receipts of 2026-10-28);
